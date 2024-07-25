@@ -7,6 +7,7 @@ import {
 } from "./constants";
 import type {
   ExcalidrawElement,
+  ExcalidrawEllipseElement,
   ExcalidrawLinearElement,
   NonDeleted,
 } from "./element/types";
@@ -14,7 +15,7 @@ import type { Bounds } from "./element/bounds";
 import { getCurvePathOps } from "./element/bounds";
 import type { Mutable } from "./utility-types";
 import { ShapeCache } from "./scene/ShapeCache";
-import type { Vector } from "../utils/geometry/shape";
+import type { Line, Vector } from "../utils/geometry/shape";
 
 export const rotate = (
   // target point to rotate
@@ -702,3 +703,8 @@ export const isPointOnSymmetricArc = (
         endAngle >= angle
     : startAngle <= angle || endAngle >= angle;
 };
+
+/**
+ * Calculates the dot product of two vectors
+ */
+export const dotProduct = (a: Vector, b: Vector) => a[0] * b[0] + a[1] * b[1];

@@ -1,4 +1,5 @@
 import {
+  interceptPointsOfLineAndEllipse,
   lineIntersectsLine,
   lineRotate,
   pointInEllipse,
@@ -245,5 +246,90 @@ describe("line and line", () => {
     expect(lineIntersectsLine(lineC, lineD)).toBe(true);
     expect(lineIntersectsLine(lineE, lineD)).toBe(false);
     expect(lineIntersectsLine(lineF, lineG)).toBe(true);
+  });
+});
+
+describe("line intersects ellipse", () => {
+  it("can detect two intersection points", () => {
+    expect(
+      interceptPointsOfLineAndEllipse(
+        {
+          type: "ellipse",
+          id: "test-01",
+          x: -5,
+          y: -5,
+          strokeColor: "red",
+          backgroundColor: "black",
+          fillStyle: "hachure",
+          strokeWidth: 0,
+          strokeStyle: "solid",
+          roundness: null,
+          roughness: 0,
+          opacity: 0,
+          width: 10,
+          height: 25,
+          angle: 0,
+          seed: 0,
+          version: 0,
+          versionNonce: 0,
+          index: null,
+          isDeleted: false,
+          groupIds: [],
+          frameId: null,
+          boundElements: null,
+          updated: 0,
+          link: null,
+          locked: false,
+        },
+        [
+          [-10, 0],
+          [10, 0],
+        ],
+      ),
+    ).toEqual([
+      [-3.999999999999999, 0],
+      [4, 0],
+    ]);
+  });
+  it("can detect two intersection points when ellipse is rotated", () => {
+    expect(
+      interceptPointsOfLineAndEllipse(
+        {
+          type: "ellipse",
+          id: "test-01",
+          x: -5,
+          y: -5,
+          strokeColor: "red",
+          backgroundColor: "black",
+          fillStyle: "hachure",
+          strokeWidth: 0,
+          strokeStyle: "solid",
+          roundness: null,
+          roughness: 0,
+          opacity: 0,
+          width: 10,
+          height: 25,
+          angle: 15,
+          seed: 0,
+          version: 0,
+          versionNonce: 0,
+          index: null,
+          isDeleted: false,
+          groupIds: [],
+          frameId: null,
+          boundElements: null,
+          updated: 0,
+          link: null,
+          locked: false,
+        },
+        [
+          [-10, 0],
+          [10, 0],
+        ],
+      ),
+    ).toEqual([
+      [1.9335164187732106, 19.027552390450893],
+      [-4.353996644614238, 13.645482700065134],
+    ]);
   });
 });

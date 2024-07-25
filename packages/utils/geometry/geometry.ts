@@ -1,4 +1,10 @@
-import { distance2d } from "../../excalidraw/math";
+import type { ExcalidrawEllipseElement } from "../../excalidraw/element/types";
+import {
+  distance2d,
+  dotProduct,
+  pointToVector,
+  rotatePoint,
+} from "../../excalidraw/math";
 import type {
   Point,
   Line,
@@ -7,6 +13,7 @@ import type {
   Ellipse,
   Polycurve,
   Polyline,
+  Vector,
 } from "./shape";
 
 const DEFAULT_THRESHOLD = 10e-5;
@@ -965,4 +972,70 @@ export const pointInEllipse = (point: Point, ellipse: Ellipse) => {
       (rotatedPointY / halfHeight) * (rotatedPointY / halfHeight) <=
     1
   );
+};
+
+/**
+ * Calculate a maximum of two intercept points for a line going throug an
+ * ellipse.
+ */
+export const interceptPointsOfLineAndEllipse = (
+  ellipse: ExcalidrawEllipseElement,
+  line: Line,
+): Point[] => {
+  const rx = ellipse.width / 2;
+  const ry = ellipse.height / 2;
+  const center = [ellipse.x + rx, ellipse.y + ry] as Point;
+  const nonRotatedLine = [
+    rotatePoint(line[0], center, -ellipse.angle),
+    rotatePoint(line[1], center, -ellipse.angle),
+  ] as Line;
+  const dir = pointToVector(nonRotatedLine[1], nonRotatedLine[0]);
+  const diff = [
+    nonRotatedLine[0][0] - center[0],
+    nonRotatedLine[0][1] - center[1],
+  ] as Vector;
+  const mDir = [dir[0] / (rx * rx), dir[1] / (ry * ry)] as Vector;
+  const mDiff = [diff[0] / (rx * rx), diff[1] / (ry * ry)] as Vector;
+
+  const a = dotProduct(dir, mDir);
+  const b = dotProduct(dir, mDiff);
+  const c = dotProduct(diff, mDiff) - 1.0;
+  const d = b * b - a * c;
+
+  const intersections: Point[] = [];
+
+  if (d > 0) {
+    const t_a = (-b - Math.sqrt(d)) / a;
+    const t_b = (-b + Math.sqrt(d)) / a;
+
+    if (0 <= t_a && t_a <= 1) {
+      intersections.push([
+        nonRotatedLine[0][0] +
+          (nonRotatedLine[1][0] - nonRotatedLine[0][0]) * t_a,
+        nonRotatedLine[0][1] +
+          (nonRotatedLine[1][1] - nonRotatedLine[0][1]) * t_a,
+      ]);
+    }
+
+    if (0 <= t_b && t_b <= 1) {
+      intersections.push([
+        nonRotatedLine[0][0] +
+          (nonRotatedLine[1][0] - nonRotatedLine[0][0]) * t_b,
+        nonRotatedLine[0][1] +
+          (nonRotatedLine[1][1] - nonRotatedLine[0][1]) * t_b,
+      ]);
+    }
+  } else if (d === 0) {
+    const t = -b / a;
+    if (0 <= t && t <= 1) {
+      intersections.push([
+        nonRotatedLine[0][0] +
+          (nonRotatedLine[1][0] - nonRotatedLine[0][0]) * t,
+        nonRotatedLine[0][1] +
+          (nonRotatedLine[1][1] - nonRotatedLine[0][1]) * t,
+      ]);
+    }
+  }
+
+  return intersections;
 };
