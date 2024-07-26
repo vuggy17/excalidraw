@@ -1,7 +1,6 @@
 import type { Bounds } from "../excalidraw/element/bounds";
 import type { Point } from "../excalidraw/types";
-
-export type LineSegment = [Point, Point];
+import type { LineSegment } from "./geometry/shape";
 
 export function getBBox(line: LineSegment): Bounds {
   return [

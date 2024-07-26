@@ -36,8 +36,11 @@ import type { Drawable, Op } from "roughjs/bin/core";
 export type Point = [number, number];
 export type Vector = Point;
 
-// a line (segment) is defined by two endpoints
+// a line is defined by two endpoints
 export type Line = [Point, Point];
+
+// a line segment with a definite start and end points
+export type LineSegment = [Point, Point];
 
 // a polyline (made up term here) is a line consisting of other line segments
 // this corresponds to a straight line element in the editor but it could also

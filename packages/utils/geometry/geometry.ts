@@ -1,9 +1,12 @@
-import type { ExcalidrawEllipseElement } from "../../excalidraw/element/types";
+import { crossProduct } from "..";
 import {
+  addVectors,
   distance2d,
   dotProduct,
   pointToVector,
   rotatePoint,
+  scaleVector,
+  subtractVectors,
 } from "../../excalidraw/math";
 import type {
   Point,
@@ -14,6 +17,7 @@ import type {
   Polycurve,
   Polyline,
   Vector,
+  LineSegment,
 } from "./shape";
 
 const DEFAULT_THRESHOLD = 10e-5;
@@ -979,20 +983,19 @@ export const pointInEllipse = (point: Point, ellipse: Ellipse) => {
  * ellipse.
  */
 export const interceptPointsOfLineAndEllipse = (
-  ellipse: ExcalidrawEllipseElement,
+  ellipse: Ellipse,
   line: Line,
 ): Point[] => {
-  const rx = ellipse.width / 2;
-  const ry = ellipse.height / 2;
-  const center = [ellipse.x + rx, ellipse.y + ry] as Point;
+  const rx = ellipse.halfWidth;
+  const ry = ellipse.halfHeight;
   const nonRotatedLine = [
-    rotatePoint(line[0], center, -ellipse.angle),
-    rotatePoint(line[1], center, -ellipse.angle),
+    rotatePoint(line[0], ellipse.center, -ellipse.angle),
+    rotatePoint(line[1], ellipse.center, -ellipse.angle),
   ] as Line;
   const dir = pointToVector(nonRotatedLine[1], nonRotatedLine[0]);
   const diff = [
-    nonRotatedLine[0][0] - center[0],
-    nonRotatedLine[0][1] - center[1],
+    nonRotatedLine[0][0] - ellipse.center[0],
+    nonRotatedLine[0][1] - ellipse.center[1],
   ] as Vector;
   const mDir = [dir[0] / (rx * rx), dir[1] / (ry * ry)] as Vector;
   const mDiff = [diff[0] / (rx * rx), diff[1] / (ry * ry)] as Vector;
@@ -1039,3 +1042,49 @@ export const interceptPointsOfLineAndEllipse = (
 
   return intersections;
 };
+
+/**
+ * Calculates the point two line segments with a definite start and end point
+ * intersect at.
+ */
+export const segmentsIntersectAt = (
+  a: Readonly<LineSegment>,
+  b: Readonly<LineSegment>,
+): Point | null => {
+  const r = subtractVectors(a[1], a[0]);
+  const s = subtractVectors(b[1], b[0]);
+  const denominator = crossProduct(r, s);
+
+  if (denominator === 0) {
+    return null;
+  }
+
+  const i = subtractVectors(b[0], a[0]);
+  const u = crossProduct(i, r) / denominator;
+  const t = crossProduct(i, s) / denominator;
+
+  if (u === 0) {
+    return null;
+  }
+
+  const p = addVectors(a[0], scaleVector(r, t));
+
+  if (t > 0 && t < 1 && u > 0 && u < 1) {
+    return p;
+  }
+
+  return null;
+};
+
+export const interceptPointsOfSegmentAndPolygon = (
+  polygon: Readonly<Polygon>,
+  segment: Readonly<LineSegment>,
+) =>
+  polygon
+    .reduce((segments, current, idx, poly) => {
+      return idx === 0
+        ? []
+        : ([...segments, [poly[idx - 1] as Point, current]] as LineSegment[]);
+    }, [] as LineSegment[])
+    .map((s) => segmentsIntersectAt(s, segment))
+    .filter((point) => point !== null);

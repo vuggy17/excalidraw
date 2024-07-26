@@ -1,4 +1,3 @@
-import { type LineSegment } from "../../utils";
 import { cross } from "../../utils/geometry/geometry";
 import BinaryHeap from "../binaryheap";
 import type { Heading } from "../math";
@@ -9,14 +8,12 @@ import {
   HEADING_UP,
   PointInTriangle,
   aabbForElement,
-  addVectors,
   arePointsEqual,
   pointInsideBounds,
   pointToVector,
   rotatePoint,
   scalePointFromOrigin,
   scaleVector,
-  subtractVectors,
   translatePoint,
   vectorToHeading,
 } from "../math";
@@ -690,35 +687,6 @@ const getDonglePosition = (
       return [point[0], bounds[3]];
   }
   return [bounds[0], point[1]];
-};
-
-export const segmentsIntersectAt = (
-  a: Readonly<LineSegment>,
-  b: Readonly<LineSegment>,
-): Point | null => {
-  const r = subtractVectors(a[1], a[0]);
-  const s = subtractVectors(b[1], b[0]);
-  const denominator = crossProduct(r, s);
-
-  if (denominator === 0) {
-    return null;
-  }
-
-  const i = subtractVectors(b[0], a[0]);
-  const u = crossProduct(i, r) / denominator;
-  const t = crossProduct(i, s) / denominator;
-
-  if (u === 0) {
-    return null;
-  }
-
-  const p = addVectors(a[0], scaleVector(r, t));
-
-  if (t > 0 && t < 1 && u > 0 && u < 1) {
-    return p;
-  }
-
-  return null;
 };
 
 export const crossProduct = (a: Point, b: Point): number =>

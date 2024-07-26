@@ -1,5 +1,6 @@
 import {
   interceptPointsOfLineAndEllipse,
+  interceptPointsOfSegmentAndPolygon,
   lineIntersectsLine,
   lineRotate,
   pointInEllipse,
@@ -12,8 +13,17 @@ import {
   pointOnPolyline,
   pointRightofLine,
   pointRotate,
+  segmentsIntersectAt,
 } from "./geometry";
-import type { Curve, Ellipse, Line, Point, Polygon, Polyline } from "./shape";
+import type {
+  Curve,
+  Ellipse,
+  Line,
+  LineSegment,
+  Point,
+  Polygon,
+  Polyline,
+} from "./shape";
 
 describe("point and line", () => {
   const line: Line = [
@@ -254,82 +264,93 @@ describe("line intersects ellipse", () => {
     expect(
       interceptPointsOfLineAndEllipse(
         {
-          type: "ellipse",
-          id: "test-01",
-          x: -5,
-          y: -5,
-          strokeColor: "red",
-          backgroundColor: "black",
-          fillStyle: "hachure",
-          strokeWidth: 0,
-          strokeStyle: "solid",
-          roundness: null,
-          roughness: 0,
-          opacity: 0,
-          width: 10,
-          height: 25,
+          center: [10, 10],
           angle: 0,
-          seed: 0,
-          version: 0,
-          versionNonce: 0,
-          index: null,
-          isDeleted: false,
-          groupIds: [],
-          frameId: null,
-          boundElements: null,
-          updated: 0,
-          link: null,
-          locked: false,
-        },
+          halfWidth: 5,
+          halfHeight: 10,
+        } as Ellipse,
         [
-          [-10, 0],
-          [10, 0],
-        ],
-      ),
+          [-10, 5],
+          [30, 5],
+        ] as LineSegment,
+      ).map((point) => point.map(Math.round)),
     ).toEqual([
-      [-3.999999999999999, 0],
-      [4, 0],
+      [6, 5],
+      [14, 5],
     ]);
   });
   it("can detect two intersection points when ellipse is rotated", () => {
     expect(
       interceptPointsOfLineAndEllipse(
         {
-          type: "ellipse",
-          id: "test-01",
-          x: -5,
-          y: -5,
-          strokeColor: "red",
-          backgroundColor: "black",
-          fillStyle: "hachure",
-          strokeWidth: 0,
-          strokeStyle: "solid",
-          roundness: null,
-          roughness: 0,
-          opacity: 0,
-          width: 10,
-          height: 25,
+          center: [10, 10],
           angle: 15,
-          seed: 0,
-          version: 0,
-          versionNonce: 0,
-          index: null,
-          isDeleted: false,
-          groupIds: [],
-          frameId: null,
-          boundElements: null,
-          updated: 0,
-          link: null,
-          locked: false,
-        },
+          halfWidth: 5,
+          halfHeight: 10,
+        } as Ellipse,
         [
-          [-10, 0],
-          [10, 0],
+          [-10, 5],
+          [30, 5],
+        ] as LineSegment,
+      ).map((point) => point.map(Math.round)),
+    ).toEqual([
+      [12, 19],
+      [5, 12],
+    ]);
+  });
+});
+
+describe("line segments intersection", () => {
+  it("correctly detects intersection point", () => {
+    expect(
+      segmentsIntersectAt(
+        [
+          [-10, -10],
+          [10, 10],
+        ],
+        [
+          [-10, 10],
+          [10, -10],
         ],
       ),
+    ).toEqual([0, 0]);
+  });
+
+  it("can detect if segments do not intersect", () => {
+    expect(
+      segmentsIntersectAt(
+        [
+          [-10, -10],
+          [-5, 5],
+        ],
+        [
+          [10, -10],
+          [5, 5],
+        ],
+      ),
+    ).toBe(null);
+  });
+});
+
+describe("can detect line segment intersection with polygon", () => {
+  it("can determine intercept point of a line segment and a polygon", () => {
+    expect(
+      interceptPointsOfSegmentAndPolygon(
+        [
+          [0, 0],
+          [10, 0],
+          [10, 10],
+          [0, 10],
+          [0, 0],
+        ],
+        [
+          [-5, 5],
+          [35, 5],
+        ],
+      ).map((point) => point.map(Math.round)),
     ).toEqual([
-      [1.9335164187732106, 19.027552390450893],
-      [-4.353996644614238, 13.645482700065134],
+      [10, 5],
+      [0, 5],
     ]);
   });
 });
