@@ -1124,7 +1124,7 @@ export const segmentsIntersectAt = (
 export const interceptPointsOfSegmentAndPolygon = (
   polygon: Readonly<Polygon>,
   segment: Readonly<LineSegment>,
-) =>
+): Point[] =>
   polygon
     .reduce((segments, current, idx, poly) => {
       return idx === 0
@@ -1132,7 +1132,7 @@ export const interceptPointsOfSegmentAndPolygon = (
         : ([...segments, [poly[idx - 1] as Point, current]] as LineSegment[]);
     }, [] as LineSegment[])
     .map((s) => segmentsIntersectAt(s, segment))
-    .filter((point) => point !== null);
+    .filter((point) => point !== null) as Point[];
 
 /**
  * Returns the points of intersection for a (potentially rounded) rectangle
@@ -1141,16 +1141,44 @@ export const interceptPointsOfSegmentAndPolygon = (
 export const interceptPointsOfSegmentAndRoundedRectangle = (
   rectangle: Rectangle,
   segment: Readonly<LineSegment>,
-) => {
+): Point[] => {
+  const center = [
+    (rectangle.points.topRight[0] - rectangle.points.topLeft[0]) / 2,
+    (rectangle.points.topRight[1] - rectangle.points.bottomRight[1]) / 2,
+  ] as Point;
+  const nonRotatedTopLeft = rotatePoint(
+    rectangle.points.topLeft,
+    center,
+    -rectangle.angle,
+  );
+  const nonRotatedTopRight = rotatePoint(
+    rectangle.points.topRight,
+    center,
+    -rectangle.angle,
+  );
+  const nonRotatedBottomRight = rotatePoint(
+    rectangle.points.bottomRight,
+    center,
+    -rectangle.angle,
+  );
+  const nonRotatedBottomLeft = rotatePoint(
+    rectangle.points.bottomLeft,
+    center,
+    -rectangle.angle,
+  );
+  const nonRotatedSegment = [
+    rotatePoint(segment[0], center, -rectangle.angle),
+    rotatePoint(segment[1], center, -rectangle.angle),
+  ] as LineSegment;
   const candidates = interceptPointsOfSegmentAndPolygon(
     [
-      rectangle.points.topLeft,
-      rectangle.points.topRight,
-      rectangle.points.bottomRight,
-      rectangle.points.bottomLeft,
-      rectangle.points.topLeft,
+      nonRotatedTopLeft,
+      nonRotatedTopRight,
+      nonRotatedBottomRight,
+      nonRotatedBottomLeft,
+      nonRotatedTopLeft,
     ],
-    segment,
+    nonRotatedSegment,
   );
 
   // Check if candidate points are in rounded corner territory
@@ -1158,10 +1186,8 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
     rectangle.roundness.topLeft > 0
       ? candidates.filter(
           (candidate) =>
-            candidate[0] <
-              rectangle.points.topLeft[0] + rectangle.roundness.topLeft &&
-            candidate[1] <
-              rectangle.points.topLeft[1] + rectangle.roundness.topLeft,
+            candidate[0] < nonRotatedTopLeft[0] + rectangle.roundness.topLeft &&
+            candidate[1] < nonRotatedTopLeft[1] + rectangle.roundness.topLeft,
         )
       : [];
   const topRightCandidates =
@@ -1169,9 +1195,8 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
       ? candidates.filter(
           (candidate) =>
             candidate[0] >
-              rectangle.points.topRight[0] - rectangle.roundness.topRight &&
-            candidate[1] <
-              rectangle.points.topRight[1] + rectangle.roundness.topRight,
+              nonRotatedTopRight[0] - rectangle.roundness.topRight &&
+            candidate[1] < nonRotatedTopRight[1] + rectangle.roundness.topRight,
         )
       : [];
   const bottomLeftCandidates =
@@ -1179,9 +1204,9 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
       ? candidates.filter(
           (candidate) =>
             candidate[0] <
-              rectangle.points.bottomLeft[0] + rectangle.roundness.bottomLeft &&
+              nonRotatedBottomLeft[0] + rectangle.roundness.bottomLeft &&
             candidate[1] >
-              rectangle.points.bottomLeft[1] - rectangle.roundness.bottomLeft,
+              nonRotatedBottomLeft[1] - rectangle.roundness.bottomLeft,
         )
       : [];
   const bottomRightCandidates =
@@ -1189,10 +1214,9 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
       ? candidates.filter(
           (candidate) =>
             candidate[0] >
-              rectangle.points.bottomRight[0] -
-                rectangle.roundness.bottomRight &&
+              nonRotatedBottomRight[0] - rectangle.roundness.bottomRight &&
             candidate[1] >
-              rectangle.points.bottomRight[1] - rectangle.roundness.bottomRight,
+              nonRotatedBottomRight[1] - rectangle.roundness.bottomRight,
         )
       : [];
   let result = candidates.filter(
@@ -1213,19 +1237,19 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
       ...interceptOfSymmetricArcAndSegment(
         {
           center: [
-            rectangle.points.topLeft[0] + rectangle.roundness.topLeft,
-            rectangle.points.topLeft[1] + rectangle.roundness.topLeft,
+            nonRotatedTopLeft[0] + rectangle.roundness.topLeft,
+            nonRotatedTopLeft[1] + rectangle.roundness.topLeft,
           ],
           from: [
-            rectangle.points.topLeft[0],
-            rectangle.points.topLeft[1] + rectangle.roundness.topLeft,
+            nonRotatedTopLeft[0],
+            nonRotatedTopLeft[1] + rectangle.roundness.topLeft,
           ],
           to: [
-            rectangle.points.topLeft[0] + rectangle.roundness.topLeft,
-            rectangle.points.topLeft[1],
+            nonRotatedTopLeft[0] + rectangle.roundness.topLeft,
+            nonRotatedTopLeft[1],
           ],
         },
-        segment,
+        nonRotatedSegment,
       ),
     ];
   }
@@ -1236,19 +1260,19 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
       ...interceptOfSymmetricArcAndSegment(
         {
           center: [
-            rectangle.points.topRight[0] - rectangle.roundness.topRight,
-            rectangle.points.topRight[1] + rectangle.roundness.topRight,
+            nonRotatedTopRight[0] - rectangle.roundness.topRight,
+            nonRotatedTopRight[1] + rectangle.roundness.topRight,
           ],
           from: [
-            rectangle.points.topRight[0] - rectangle.roundness.topRight,
-            rectangle.points.topRight[1],
+            nonRotatedTopRight[0] - rectangle.roundness.topRight,
+            nonRotatedTopRight[1],
           ],
           to: [
-            rectangle.points.topRight[0],
-            rectangle.points.topRight[1] + rectangle.roundness.topRight,
+            nonRotatedTopRight[0],
+            nonRotatedTopRight[1] + rectangle.roundness.topRight,
           ],
         },
-        segment,
+        nonRotatedSegment,
       ),
     ];
   }
@@ -1259,19 +1283,19 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
       ...interceptOfSymmetricArcAndSegment(
         {
           center: [
-            rectangle.points.bottomRight[0] - rectangle.roundness.bottomRight,
-            rectangle.points.bottomRight[1] - rectangle.roundness.bottomRight,
+            nonRotatedBottomRight[0] - rectangle.roundness.bottomRight,
+            nonRotatedBottomRight[1] - rectangle.roundness.bottomRight,
           ],
           from: [
-            rectangle.points.bottomRight[0],
-            rectangle.points.bottomRight[1] - rectangle.roundness.bottomRight,
+            nonRotatedBottomRight[0],
+            nonRotatedBottomRight[1] - rectangle.roundness.bottomRight,
           ],
           to: [
-            rectangle.points.bottomRight[0] - rectangle.roundness.bottomRight,
-            rectangle.points.bottomRight[1],
+            nonRotatedBottomRight[0] - rectangle.roundness.bottomRight,
+            nonRotatedBottomRight[1],
           ],
         },
-        segment,
+        nonRotatedSegment,
       ),
     ];
   }
@@ -1282,22 +1306,24 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
       ...interceptOfSymmetricArcAndSegment(
         {
           center: [
-            rectangle.points.bottomLeft[0] + rectangle.roundness.bottomLeft,
-            rectangle.points.bottomLeft[1] - rectangle.roundness.bottomLeft,
+            nonRotatedBottomLeft[0] + rectangle.roundness.bottomLeft,
+            nonRotatedBottomLeft[1] - rectangle.roundness.bottomLeft,
           ],
           from: [
-            rectangle.points.bottomLeft[0] + rectangle.roundness.bottomLeft,
-            rectangle.points.bottomLeft[1],
+            nonRotatedBottomLeft[0] + rectangle.roundness.bottomLeft,
+            nonRotatedBottomLeft[1],
           ],
           to: [
-            rectangle.points.bottomLeft[0],
-            rectangle.points.bottomLeft[1] - rectangle.roundness.bottomLeft,
+            nonRotatedBottomLeft[0],
+            nonRotatedBottomLeft[1] - rectangle.roundness.bottomLeft,
           ],
         },
-        segment,
+        nonRotatedSegment,
       ),
     ];
   }
 
-  return result;
+  return result.map((point: Point) =>
+    rotatePoint(point, center, rectangle.angle),
+  );
 };

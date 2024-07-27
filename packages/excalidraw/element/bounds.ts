@@ -25,6 +25,7 @@ import { LinearElementEditor } from "./linearElementEditor";
 import type { Mutable } from "../utility-types";
 import { ShapeCache } from "../scene/ShapeCache";
 import { arrayToMap } from "../utils";
+import type { LineSegment } from "../../utils/geometry/shape";
 
 export type RectangleBox = {
   x: number;
@@ -198,7 +199,7 @@ export const getElementAbsoluteCoords = (
 export const getElementLineSegments = (
   element: ExcalidrawElement,
   elementsMap: ElementsMap,
-): [Point, Point][] => {
+): LineSegment[] => {
   const [x1, y1, x2, y2, cx, cy] = getElementAbsoluteCoords(
     element,
     elementsMap,
@@ -207,7 +208,7 @@ export const getElementLineSegments = (
   const center: Point = [cx, cy];
 
   if (isLinearElement(element) || isFreeDrawElement(element)) {
-    const segments: [Point, Point][] = [];
+    const segments: LineSegment[] = [];
 
     let i = 0;
 

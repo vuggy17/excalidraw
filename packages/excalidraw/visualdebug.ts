@@ -1,5 +1,4 @@
-import type { LineSegment } from "../utils";
-import type { Vector } from "../utils/geometry/shape";
+import type { LineSegment, Vector } from "../utils/geometry/shape";
 import type { BoundingBox, Bounds } from "./element/bounds";
 import type { InteractiveCanvasAppState, Point } from "./types";
 

@@ -576,7 +576,7 @@ const generateDynamicAABBs = (
       // TOP RIGHT
       const cX = second[2] + (first[0] - second[2]) / 2;
       const cY = first[3] + (second[1] - first[3]) / 2;
-      debugDrawPoint([cX, cY], "red");
+
       if (cross([a[2], a[1]], [a[0], a[3]], [endCenterX, endCenterY]) > 0) {
         return [
           [cX, first[1], first[2], first[3]],
@@ -592,7 +592,7 @@ const generateDynamicAABBs = (
       // BOTTOM RIGHT
       const cX = second[2] + (first[0] - second[2]) / 2;
       const cY = second[3] + (first[1] - second[3]) / 2;
-      debugDrawPoint([cX, cY], "red");
+
       if (cross([a[0], a[1]], [a[2], a[3]], [endCenterX, endCenterY]) > 0) {
         return [
           [cX, first[1], first[2], first[3]],

@@ -52,6 +52,8 @@ import type { Heading } from "../math";
 import {
   aabbForElement,
   compareHeading,
+  distanceSq2d,
+  getCornerRadius,
   HEADING_DOWN,
   HEADING_LEFT,
   HEADING_RIGHT,
@@ -60,10 +62,23 @@ import {
   pointToVector,
   rotatePoint,
   scaleVector,
-  translatePoint,
   vectorToHeading,
 } from "../math";
-import { debugDrawPoint } from "../visualdebug";
+import {
+  debugDrawBounds,
+  debugDrawPoint,
+  debugDrawSegments,
+} from "../visualdebug";
+import {
+  interceptPointsOfLineAndEllipse,
+  interceptPointsOfSegmentAndRoundedRectangle,
+} from "../../utils/geometry/geometry";
+import type { LineSegment } from "../../utils/geometry/shape";
+import {
+  DEFAULT_ADAPTIVE_RADIUS,
+  DEFAULT_PROPORTIONAL_RADIUS,
+  ROUNDNESS,
+} from "../constants";
 
 export type SuggestedBinding =
   | NonDeleted<ExcalidrawBindableElement>
@@ -719,6 +734,7 @@ export const bindPointToSnapToElementOutline = (
   elementsMap: ElementsMap,
 ): Point => {
   const aabb = aabbForElement(bindableElement);
+  debugDrawBounds(aabb);
   const heading = getHeadingForElbowArrowSnap(
     point,
     otherPoint,
@@ -726,45 +742,108 @@ export const bindPointToSnapToElementOutline = (
     aabb,
     elementsMap,
   );
-
+  debugDrawPoint(point, "green");
   if (heading) {
     const headingIsVertical =
       compareHeading(heading, HEADING_UP) ||
       compareHeading(heading, HEADING_DOWN);
-    const intersections = intersectElementWithLine(
+    const intersections = _intersectElementWithLine(
       bindableElement,
-      headingIsVertical ? [point[0], aabb[1]] : [aabb[0], point[1]],
-      headingIsVertical ? [point[0], aabb[3]] : [aabb[2], point[1]],
+      headingIsVertical
+        ? [point[0], aabb[1] - FIXED_BINDING_DISTANCE * 2]
+        : [aabb[0] - FIXED_BINDING_DISTANCE * 2, point[1]],
+      headingIsVertical
+        ? [point[0], aabb[3] + FIXED_BINDING_DISTANCE * 2]
+        : [aabb[2] + FIXED_BINDING_DISTANCE * 2, point[1]],
       FIXED_BINDING_DISTANCE,
-      elementsMap,
+    );
+    intersections.sort(
+      (a, b) => distanceSq2d(a, point) - distanceSq2d(b, point),
+    );
+    debugDrawSegments(
+      [
+        headingIsVertical
+          ? [point[0], aabb[1] - FIXED_BINDING_DISTANCE * 2]
+          : [aabb[0] - FIXED_BINDING_DISTANCE * 2, point[1]],
+        headingIsVertical
+          ? [point[0], aabb[3] + FIXED_BINDING_DISTANCE * 2]
+          : [aabb[2] + FIXED_BINDING_DISTANCE * 2, point[1]],
+      ],
+      "cyan",
     );
 
-    if (intersections.length === 2) {
-      // TODO: Hack to circumvent bug in intersectElementWithLine transposing
-      // second intersect point on rectanguloid shapes
-      if (
-        bindableElement.type !== "ellipse" &&
-        bindableElement.type !== "diamond"
-      ) {
-        return compareHeading(heading, HEADING_UP) ||
-          compareHeading(heading, HEADING_LEFT)
-          ? intersections[0]
-          : [-1 * intersections[1][0], -1 * intersections[1][1]];
-      }
-      return compareHeading(heading, HEADING_UP) ||
-        compareHeading(heading, HEADING_LEFT)
-        ? intersections[0]
-        : intersections[1];
+    if (intersections.length > 0) {
+      debugDrawPoint(intersections[0], "red");
+      return intersections[0];
     }
   }
 
   return point;
 };
 
+export const _intersectElementWithLine = (
+  element: ExcalidrawBindableElement,
+  a: Point,
+  b: Point,
+  gap: number = 0,
+): Point[] => {
+  switch (element.type) {
+    case "rectangle":
+    case "image":
+    case "text":
+    case "diamond":
+    case "iframe":
+    case "embeddable":
+    case "frame":
+    case "magicframe":
+      const roundness = getCornerRadius(
+        Math.min(element.width, element.height),
+        element,
+      );
+      return interceptPointsOfSegmentAndRoundedRectangle(
+        {
+          angle: element.angle,
+          points: {
+            topLeft: [element.x - gap, element.y - gap],
+            topRight: [element.x + element.width + gap, element.y - gap],
+            bottomRight: [
+              element.x + element.width + gap,
+              element.y + element.height + gap,
+            ],
+            bottomLeft: [element.x - gap, element.y + element.height + gap],
+          },
+          roundness: {
+            topLeft: roundness,
+            topRight: roundness,
+            bottomRight: roundness,
+            bottomLeft: roundness,
+          },
+        },
+        [a, b] as LineSegment,
+      );
+    case "ellipse":
+      const halfWidth = element.width / 2;
+      const halfHeight = element.height / 2;
+      return interceptPointsOfLineAndEllipse(
+        {
+          center: [element.x + element.width, element.y + element.height],
+          angle: element.angle,
+          halfWidth,
+          halfHeight,
+        },
+        [a, b] as LineSegment,
+      );
+  }
+};
+
 export const avoidRectangularCorner = (
   element: ExcalidrawBindableElement,
   p: Point,
 ): Point => {
+  if (element.roundness) {
+    return p;
+  }
+
   // NOTE: Only relevant at angle = 0, so no rotation
 
   if (p[0] < element.x && p[1] < element.y) {
