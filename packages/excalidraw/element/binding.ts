@@ -61,24 +61,13 @@ import {
   pointInsideBounds,
   pointToVector,
   rotatePoint,
-  scaleVector,
   vectorToHeading,
 } from "../math";
-import {
-  debugDrawBounds,
-  debugDrawPoint,
-  debugDrawSegments,
-} from "../visualdebug";
 import {
   interceptPointsOfLineAndEllipse,
   interceptPointsOfSegmentAndRoundedRectangle,
 } from "../../utils/geometry/geometry";
 import type { LineSegment } from "../../utils/geometry/shape";
-import {
-  DEFAULT_ADAPTIVE_RADIUS,
-  DEFAULT_PROPORTIONAL_RADIUS,
-  ROUNDNESS,
-} from "../constants";
 
 export type SuggestedBinding =
   | NonDeleted<ExcalidrawBindableElement>
@@ -693,6 +682,7 @@ const getSimultaneouslyUpdatedElementIds = (
   return new Set((simultaneouslyUpdated || []).map((element) => element.id));
 };
 
+// TODO: See if it can be merged with routing.ts: getBindPointHeading()
 const getHeadingForElbowArrowSnap = (
   point: Point,
   otherPoint: Point,
@@ -714,11 +704,17 @@ const getHeadingForElbowArrowSnap = (
   if (distance > bindDistance) {
     return null;
   }
-  const pointHeading = headingForPointFromElement(bindableElement, aabb, point);
-  const otherPointHeading = scaleVector(
-    vectorToHeading(pointToVector(point, otherPoint)),
-    -1,
-  ) as Heading;
+  const pointHeading = headingForPointFromElement(
+    bindableElement,
+    aabbForElement(
+      bindableElement,
+      Array(4).fill(
+        distanceToBindableElement(bindableElement, point, elementsMap),
+      ) as [number, number, number, number],
+    ),
+    point,
+  );
+  const otherPointHeading = vectorToHeading(pointToVector(otherPoint, point));
   const isInner =
     otherPointHeading === HEADING_LEFT || otherPointHeading === HEADING_RIGHT
       ? distance < bindableElement.width * -0.2
@@ -733,8 +729,12 @@ export const bindPointToSnapToElementOutline = (
   bindableElement: ExcalidrawBindableElement,
   elementsMap: ElementsMap,
 ): Point => {
-  const aabb = aabbForElement(bindableElement);
-  debugDrawBounds(aabb);
+  const aabb = aabbForElement(bindableElement, [
+    FIXED_BINDING_DISTANCE,
+    FIXED_BINDING_DISTANCE,
+    FIXED_BINDING_DISTANCE,
+    FIXED_BINDING_DISTANCE,
+  ]);
   const heading = getHeadingForElbowArrowSnap(
     point,
     otherPoint,
@@ -742,7 +742,7 @@ export const bindPointToSnapToElementOutline = (
     aabb,
     elementsMap,
   );
-  debugDrawPoint(point, "green");
+
   if (heading) {
     const headingIsVertical =
       compareHeading(heading, HEADING_UP) ||
@@ -760,20 +760,8 @@ export const bindPointToSnapToElementOutline = (
     intersections.sort(
       (a, b) => distanceSq2d(a, point) - distanceSq2d(b, point),
     );
-    debugDrawSegments(
-      [
-        headingIsVertical
-          ? [point[0], aabb[1] - FIXED_BINDING_DISTANCE * 2]
-          : [aabb[0] - FIXED_BINDING_DISTANCE * 2, point[1]],
-        headingIsVertical
-          ? [point[0], aabb[3] + FIXED_BINDING_DISTANCE * 2]
-          : [aabb[2] + FIXED_BINDING_DISTANCE * 2, point[1]],
-      ],
-      "cyan",
-    );
 
     if (intersections.length > 0) {
-      debugDrawPoint(intersections[0], "red");
       return intersections[0];
     }
   }
@@ -840,39 +828,41 @@ export const avoidRectangularCorner = (
   element: ExcalidrawBindableElement,
   p: Point,
 ): Point => {
-  if (element.roundness) {
-    return p;
-  }
-
-  // NOTE: Only relevant at angle = 0, so no rotation
+  // NOTE: Only relevant at angle = 0, so no rotation handling
 
   if (p[0] < element.x && p[1] < element.y) {
     // Top left
-    if (p[1] - element.y > -5) {
-      return [element.x - 5, element.y];
+    if (p[1] - element.y > -FIXED_BINDING_DISTANCE) {
+      return [element.x - FIXED_BINDING_DISTANCE, element.y];
     }
-    return [element.x, element.y - 5];
+    return [element.x, element.y - FIXED_BINDING_DISTANCE];
   } else if (p[0] < element.x && p[1] > element.y + element.height) {
     // Bottom left
-    if (p[0] - element.x > -5) {
-      return [element.x, element.y + element.height + 5];
+    if (p[0] - element.x > -FIXED_BINDING_DISTANCE) {
+      return [element.x, element.y + element.height + FIXED_BINDING_DISTANCE];
     }
-    return [element.x - 5, element.y + element.height];
+    return [element.x - FIXED_BINDING_DISTANCE, element.y + element.height];
   } else if (
     p[0] > element.x + element.width &&
     p[1] > element.y + element.height
   ) {
     // Bottom right
-    if (p[0] - element.x < element.width + 5) {
-      return [element.x + element.width, element.y + element.height + 5];
+    if (p[0] - element.x < element.width + FIXED_BINDING_DISTANCE) {
+      return [
+        element.x + element.width,
+        element.y + element.height + FIXED_BINDING_DISTANCE,
+      ];
     }
-    return [element.x + element.width + 5, element.y + element.height];
+    return [
+      element.x + element.width + FIXED_BINDING_DISTANCE,
+      element.y + element.height,
+    ];
   } else if (p[0] > element.x + element.width && p[1] < element.y) {
     // Top right
-    if (p[0] - element.x < element.width + 5) {
-      return [element.x + element.width, element.y - 5];
+    if (p[0] - element.x < element.width + FIXED_BINDING_DISTANCE) {
+      return [element.x + element.width, element.y - FIXED_BINDING_DISTANCE];
     }
-    return [element.x + element.width + 5, element.y];
+    return [element.x + element.width + FIXED_BINDING_DISTANCE, element.y];
   }
 
   return p;

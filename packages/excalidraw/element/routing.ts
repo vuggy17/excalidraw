@@ -1137,21 +1137,19 @@ const getGlobalPoint = (
   isDragging?: boolean,
 ): Point => {
   if (isDragging && hoveredElement) {
+    const nonCornerPoint = isRectanguloidElement(hoveredElement)
+      ? avoidRectangularCorner(hoveredElement, initialPoint)
+      : initialPoint;
     const snapPoint =
       hoveredElement &&
       bindPointToSnapToElementOutline(
-        initialPoint,
+        nonCornerPoint,
         otherPoint,
         hoveredElement,
         elementsMap,
       );
 
-    return isRectanguloidElement(hoveredElement)
-      ? snapToMid(
-          hoveredElement,
-          avoidRectangularCorner(hoveredElement, snapPoint),
-        )
-      : snapPoint;
+    return snapToMid(hoveredElement, snapPoint);
   } else if (boundElement) {
     return bindPointToSnapToElementOutline(
       initialPoint,
@@ -1164,6 +1162,7 @@ const getGlobalPoint = (
   return initialPoint;
 };
 
+// TODO: See if it can be merged with binding.ts: getHeadingForElbowArrowSnap()
 const getBindPointHeading = (
   point: Point,
   otherPoint: Point,
