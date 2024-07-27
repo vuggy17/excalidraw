@@ -439,18 +439,21 @@ describe("can detect intersection of rounded rectangle and segment", () => {
     ).toEqual([[-7, -10]]);
   });
 
-  // it("can correctly detect rotated rectangle", () => {
-  //   expect(
-  //     interceptPointsOfSegmentAndRoundedRectangle(
-  //       {
-  //         ...rectangle,
-  //         angle: 5,
-  //       },
-  //       [
-  //         [-18, -27],
-  //         [6, 27],
-  //       ],
-  //     ).map((point) => point.map(Math.round)),
-  //   ).toEqual([[-7, -10]]);
-  // });
+  it("can correctly detect rotated rectangle", () => {
+    expect(
+      interceptPointsOfSegmentAndRoundedRectangle(
+        {
+          ...rectangle,
+          angle: 5,
+        },
+        [
+          [-18, -27],
+          [6, 27],
+        ],
+      ).map((point) => point.map(Math.round)),
+    ).toEqual([
+      [9, 4],
+      [-10, 7],
+    ]);
+  });
 });

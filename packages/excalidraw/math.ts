@@ -7,7 +7,6 @@ import {
 } from "./constants";
 import type {
   ExcalidrawElement,
-  ExcalidrawEllipseElement,
   ExcalidrawLinearElement,
   NonDeleted,
 } from "./element/types";
@@ -15,7 +14,7 @@ import type { Bounds } from "./element/bounds";
 import { getCurvePathOps } from "./element/bounds";
 import type { Mutable } from "./utility-types";
 import { ShapeCache } from "./scene/ShapeCache";
-import type { Line, Vector } from "../utils/geometry/shape";
+import type { Vector } from "../utils/geometry/shape";
 
 export const rotate = (
   // target point to rotate

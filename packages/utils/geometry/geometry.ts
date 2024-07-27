@@ -1143,33 +1143,35 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
   segment: Readonly<LineSegment>,
 ): Point[] => {
   const center = [
-    (rectangle.points.topRight[0] - rectangle.points.topLeft[0]) / 2,
-    (rectangle.points.topRight[1] - rectangle.points.bottomRight[1]) / 2,
+    (rectangle.points.topLeft[0] + rectangle.points.topRight[0]) / 2,
+    (rectangle.points.topLeft[1] + rectangle.points.bottomRight[1]) / 2,
   ] as Point;
+
   const nonRotatedTopLeft = rotatePoint(
     rectangle.points.topLeft,
     center,
-    -rectangle.angle,
+    rectangle.angle,
   );
   const nonRotatedTopRight = rotatePoint(
     rectangle.points.topRight,
     center,
-    -rectangle.angle,
+    rectangle.angle,
   );
   const nonRotatedBottomRight = rotatePoint(
     rectangle.points.bottomRight,
     center,
-    -rectangle.angle,
+    rectangle.angle,
   );
   const nonRotatedBottomLeft = rotatePoint(
     rectangle.points.bottomLeft,
     center,
-    -rectangle.angle,
+    rectangle.angle,
   );
-  const nonRotatedSegment = [
-    rotatePoint(segment[0], center, -rectangle.angle),
-    rotatePoint(segment[1], center, -rectangle.angle),
+  const rotatedSegment = [
+    rotatePoint(segment[0], center, rectangle.angle),
+    rotatePoint(segment[1], center, rectangle.angle),
   ] as LineSegment;
+
   const candidates = interceptPointsOfSegmentAndPolygon(
     [
       nonRotatedTopLeft,
@@ -1178,7 +1180,7 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
       nonRotatedBottomLeft,
       nonRotatedTopLeft,
     ],
-    nonRotatedSegment,
+    rotatedSegment,
   );
 
   // Check if candidate points are in rounded corner territory
@@ -1249,7 +1251,7 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
             nonRotatedTopLeft[1],
           ],
         },
-        nonRotatedSegment,
+        rotatedSegment,
       ),
     ];
   }
@@ -1272,7 +1274,7 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
             nonRotatedTopRight[1] + rectangle.roundness.topRight,
           ],
         },
-        nonRotatedSegment,
+        rotatedSegment,
       ),
     ];
   }
@@ -1295,7 +1297,7 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
             nonRotatedBottomRight[1],
           ],
         },
-        nonRotatedSegment,
+        rotatedSegment,
       ),
     ];
   }
@@ -1318,12 +1320,9 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
             nonRotatedBottomLeft[1] - rectangle.roundness.bottomLeft,
           ],
         },
-        nonRotatedSegment,
+        rotatedSegment,
       ),
     ];
   }
-
-  return result.map((point: Point) =>
-    rotatePoint(point, center, rectangle.angle),
-  );
+  return result;
 };

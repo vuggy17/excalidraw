@@ -63,6 +63,7 @@ import {
   rotatePoint,
   vectorToHeading,
 } from "../math";
+import { debugDrawPoint } from "../visualdebug";
 import {
   interceptPointsOfLineAndEllipse,
   interceptPointsOfSegmentAndRoundedRectangle,
@@ -687,7 +688,6 @@ const getHeadingForElbowArrowSnap = (
   point: Point,
   otherPoint: Point,
   bindableElement: ExcalidrawBindableElement,
-  aabb: Bounds,
   elementsMap: ElementsMap,
 ): Heading | null => {
   const distance = distanceToBindableElement(
@@ -735,26 +735,36 @@ export const bindPointToSnapToElementOutline = (
     FIXED_BINDING_DISTANCE,
     FIXED_BINDING_DISTANCE,
   ]);
+  const center = [(aabb[0] + aabb[2]) / 2, (aabb[1] + aabb[3]) / 2] as Point;
+
   const heading = getHeadingForElbowArrowSnap(
     point,
     otherPoint,
     bindableElement,
-    aabb,
     elementsMap,
   );
 
+  debugDrawPoint(point, "green");
   if (heading) {
     const headingIsVertical =
       compareHeading(heading, HEADING_UP) ||
       compareHeading(heading, HEADING_DOWN);
     const intersections = _intersectElementWithLine(
       bindableElement,
-      headingIsVertical
-        ? [point[0], aabb[1] - FIXED_BINDING_DISTANCE * 2]
-        : [aabb[0] - FIXED_BINDING_DISTANCE * 2, point[1]],
-      headingIsVertical
-        ? [point[0], aabb[3] + FIXED_BINDING_DISTANCE * 2]
-        : [aabb[2] + FIXED_BINDING_DISTANCE * 2, point[1]],
+      rotatePoint(
+        headingIsVertical
+          ? [point[0], aabb[1] - bindableElement.height]
+          : [aabb[0] - bindableElement.width, point[1]],
+        center,
+        -bindableElement.angle,
+      ),
+      rotatePoint(
+        headingIsVertical
+          ? [point[0], aabb[3] + bindableElement.height]
+          : [aabb[2] + bindableElement.width, point[1]],
+        center,
+        -bindableElement.angle,
+      ),
       FIXED_BINDING_DISTANCE,
     );
     intersections.sort(
@@ -762,6 +772,7 @@ export const bindPointToSnapToElementOutline = (
     );
 
     if (intersections.length > 0) {
+      debugDrawPoint(intersections[0], "red");
       return intersections[0];
     }
   }
