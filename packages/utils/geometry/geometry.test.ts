@@ -1,6 +1,7 @@
 import {
   interceptPointsOfLineAndEllipse,
   interceptPointsOfSegmentAndPolygon,
+  interceptOfSymmetricArcAndSegment,
   lineIntersectsLine,
   lineRotate,
   pointInEllipse,
@@ -14,6 +15,7 @@ import {
   pointRightofLine,
   pointRotate,
   segmentsIntersectAt,
+  interceptPointsOfSegmentAndRoundedRectangle,
 } from "./geometry";
 import type {
   Curve,
@@ -23,6 +25,7 @@ import type {
   Point,
   Polygon,
   Polyline,
+  Rectangle,
 } from "./shape";
 
 describe("point and line", () => {
@@ -259,6 +262,39 @@ describe("line and line", () => {
   });
 });
 
+describe("segment intersecting symmetric arc", () => {
+  it("can detect intersection point", () => {
+    expect(
+      interceptOfSymmetricArcAndSegment(
+        {
+          from: [10, 0],
+          to: [20, 10],
+          center: [10, 10],
+        },
+        [
+          [0, 5],
+          [40, 5],
+        ],
+      ).map((point) => point.map(Math.round)),
+    ).toEqual([[19, 5]]);
+  });
+  it("does not detect point on circle but not on arc", () => {
+    expect(
+      interceptOfSymmetricArcAndSegment(
+        {
+          from: [10, 0],
+          to: [20, 10],
+          center: [10, 10],
+        },
+        [
+          [0, 15],
+          [40, 15],
+        ],
+      ).map((point) => point.map(Math.round)),
+    ).toEqual([]);
+  });
+});
+
 describe("line intersects ellipse", () => {
   it("can detect two intersection points", () => {
     expect(
@@ -352,5 +388,54 @@ describe("can detect line segment intersection with polygon", () => {
       [10, 5],
       [0, 5],
     ]);
+  });
+});
+
+describe("can detect intersection of rounded rectangle and segment", () => {
+  const rectangle = {
+    points: {
+      topLeft: [-10, -10],
+      topRight: [10, -10],
+      bottomRight: [10, 10],
+      bottomLeft: [-10, 10],
+    },
+    angle: 0,
+    roundness: {
+      topLeft: 3,
+      topRight: 3,
+      bottomRight: 3,
+      bottomLeft: 3,
+    },
+  } as Rectangle;
+
+  it("can corrently detect point on rounded corner of a rectangle", () => {
+    expect(
+      interceptPointsOfSegmentAndRoundedRectangle(rectangle, [
+        [-11, -11],
+        [11, 11],
+      ]).map((point) => point.map(Math.round)),
+    ).toEqual([
+      [-9, -9],
+      [9, 9],
+    ]);
+
+    expect(
+      interceptPointsOfSegmentAndRoundedRectangle(rectangle, [
+        [-11, 11],
+        [11, -11],
+      ]).map((point) => point.map(Math.round)),
+    ).toEqual([
+      [9, -9],
+      [-9, 9],
+    ]);
+  });
+
+  it("can correctly detect slanted crossing of a line of the rectangle", () => {
+    expect(
+      interceptPointsOfSegmentAndRoundedRectangle(rectangle, [
+        [-7, -11],
+        [-4, -2],
+      ]).map((point) => point.map(Math.round)),
+    ).toEqual([[-7, -10]]);
   });
 });

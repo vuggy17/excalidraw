@@ -58,6 +58,31 @@ export type Polycurve = Curve[];
 // rectangles and diamonds are modelled by polygons
 export type Polygon = Point[];
 
+// An arc path between a start and end point, the radius centered at the center
+// point.
+export type CircularArc = {
+  from: Point;
+  to: Point;
+  center: Point;
+};
+
+// A closed polygon with right angles and potential roundness at the edges
+export type Rectangle = {
+  points: {
+    topLeft: Point;
+    topRight: Point;
+    bottomRight: Point;
+    bottomLeft: Point;
+  };
+  angle: number;
+  roundness: {
+    topLeft: number;
+    topRight: number;
+    bottomRight: number;
+    bottomLeft: number;
+  };
+};
+
 // an ellipse is specified by its center, angle, and its major and minor axes
 // but for the sake of simplicity, we've used halfWidth and halfHeight instead
 // in replace of semi major and semi minor axes

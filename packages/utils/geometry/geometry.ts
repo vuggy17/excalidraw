@@ -1,8 +1,12 @@
 import { crossProduct } from "..";
 import {
   addVectors,
+  arePointsEqual,
+  carthesian2Polar,
   distance2d,
+  distancePoints,
   dotProduct,
+  isAnyTrue,
   pointToVector,
   rotatePoint,
   scaleVector,
@@ -18,6 +22,8 @@ import type {
   Polyline,
   Vector,
   LineSegment,
+  Rectangle,
+  CircularArc,
 } from "./shape";
 
 const DEFAULT_THRESHOLD = 10e-5;
@@ -979,12 +985,46 @@ export const pointInEllipse = (point: Point, ellipse: Ellipse) => {
 };
 
 /**
+ * Returns the intersection point(s) of a line segment represented by a start
+ * point and end point and a symmetric arc.
+ */
+export const interceptOfSymmetricArcAndSegment = (
+  arc: CircularArc,
+  line: Readonly<LineSegment>,
+): Point[] => {
+  const radius = distancePoints(arc.from, arc.center);
+  const [, fromAngle] = carthesian2Polar(arc.from, arc.center);
+  const [, toAngle] = carthesian2Polar(arc.to, arc.center);
+
+  return interceptPointsOfLineAndEllipse(
+    {
+      center: arc.center,
+      angle: 0,
+      halfHeight: radius,
+      halfWidth: radius,
+    },
+    line,
+  ).filter((candidate) => {
+    const [candidateRadius, candidateAngle] = carthesian2Polar(
+      candidate,
+      arc.center,
+    );
+
+    return fromAngle < toAngle
+      ? Math.abs(radius - candidateRadius) < 0.0000001 &&
+          fromAngle <= candidateAngle &&
+          toAngle >= candidateAngle
+      : fromAngle <= candidateAngle || toAngle >= candidateAngle;
+  });
+};
+
+/**
  * Calculate a maximum of two intercept points for a line going throug an
  * ellipse.
  */
 export const interceptPointsOfLineAndEllipse = (
-  ellipse: Ellipse,
-  line: Line,
+  ellipse: Readonly<Ellipse>,
+  line: Readonly<Line>,
 ): Point[] => {
   const rx = ellipse.halfWidth;
   const ry = ellipse.halfHeight;
@@ -1069,13 +1109,18 @@ export const segmentsIntersectAt = (
 
   const p = addVectors(a[0], scaleVector(r, t));
 
-  if (t > 0 && t < 1 && u > 0 && u < 1) {
+  if (t >= 0 && t < 1 && u >= 0 && u < 1) {
     return p;
   }
 
   return null;
 };
 
+/**
+ * Returns the points of intersection of a line segment, identified by exactly
+ * one start pointand one end point, and the polygon identified by a set of
+ * ponits representing a set of connected lines.
+ */
 export const interceptPointsOfSegmentAndPolygon = (
   polygon: Readonly<Polygon>,
   segment: Readonly<LineSegment>,
@@ -1088,3 +1133,171 @@ export const interceptPointsOfSegmentAndPolygon = (
     }, [] as LineSegment[])
     .map((s) => segmentsIntersectAt(s, segment))
     .filter((point) => point !== null);
+
+/**
+ * Returns the points of intersection for a (potentially rounded) rectangle
+ * and a line segment identified by a start point and an end point.
+ */
+export const interceptPointsOfSegmentAndRoundedRectangle = (
+  rectangle: Rectangle,
+  segment: Readonly<LineSegment>,
+) => {
+  const candidates = interceptPointsOfSegmentAndPolygon(
+    [
+      rectangle.points.topLeft,
+      rectangle.points.topRight,
+      rectangle.points.bottomRight,
+      rectangle.points.bottomLeft,
+      rectangle.points.topLeft,
+    ],
+    segment,
+  );
+
+  // Check if candidate points are in rounded corner territory
+  const topLeftCandidates =
+    rectangle.roundness.topLeft > 0
+      ? candidates.filter(
+          (candidate) =>
+            candidate[0] <
+              rectangle.points.topLeft[0] + rectangle.roundness.topLeft &&
+            candidate[1] <
+              rectangle.points.topLeft[1] + rectangle.roundness.topLeft,
+        )
+      : [];
+  const topRightCandidates =
+    rectangle.roundness.topRight > 0
+      ? candidates.filter(
+          (candidate) =>
+            candidate[0] >
+              rectangle.points.topRight[0] - rectangle.roundness.topRight &&
+            candidate[1] <
+              rectangle.points.topRight[1] + rectangle.roundness.topRight,
+        )
+      : [];
+  const bottomLeftCandidates =
+    rectangle.roundness.bottomLeft > 0
+      ? candidates.filter(
+          (candidate) =>
+            candidate[0] <
+              rectangle.points.bottomLeft[0] + rectangle.roundness.bottomLeft &&
+            candidate[1] >
+              rectangle.points.bottomLeft[1] - rectangle.roundness.bottomLeft,
+        )
+      : [];
+  const bottomRightCandidates =
+    rectangle.roundness.bottomRight > 0
+      ? candidates.filter(
+          (candidate) =>
+            candidate[0] >
+              rectangle.points.bottomRight[0] -
+                rectangle.roundness.bottomRight &&
+            candidate[1] >
+              rectangle.points.bottomRight[1] - rectangle.roundness.bottomRight,
+        )
+      : [];
+  let result = candidates.filter(
+    (candidate) =>
+      !isAnyTrue(
+        ...[
+          ...topLeftCandidates,
+          ...topRightCandidates,
+          ...bottomRightCandidates,
+          ...bottomLeftCandidates,
+        ].map((point) => arePointsEqual(candidate, point)),
+      ),
+  );
+
+  if (topLeftCandidates.length > 0) {
+    result = [
+      ...result,
+      ...interceptOfSymmetricArcAndSegment(
+        {
+          center: [
+            rectangle.points.topLeft[0] + rectangle.roundness.topLeft,
+            rectangle.points.topLeft[1] + rectangle.roundness.topLeft,
+          ],
+          from: [
+            rectangle.points.topLeft[0],
+            rectangle.points.topLeft[1] + rectangle.roundness.topLeft,
+          ],
+          to: [
+            rectangle.points.topLeft[0] + rectangle.roundness.topLeft,
+            rectangle.points.topLeft[1],
+          ],
+        },
+        segment,
+      ),
+    ];
+  }
+
+  if (topRightCandidates.length > 0) {
+    result = [
+      ...result,
+      ...interceptOfSymmetricArcAndSegment(
+        {
+          center: [
+            rectangle.points.topRight[0] - rectangle.roundness.topRight,
+            rectangle.points.topRight[1] + rectangle.roundness.topRight,
+          ],
+          from: [
+            rectangle.points.topRight[0] - rectangle.roundness.topRight,
+            rectangle.points.topRight[1],
+          ],
+          to: [
+            rectangle.points.topRight[0],
+            rectangle.points.topRight[1] + rectangle.roundness.topRight,
+          ],
+        },
+        segment,
+      ),
+    ];
+  }
+
+  if (bottomRightCandidates.length > 0) {
+    result = [
+      ...result,
+      ...interceptOfSymmetricArcAndSegment(
+        {
+          center: [
+            rectangle.points.bottomRight[0] - rectangle.roundness.bottomRight,
+            rectangle.points.bottomRight[1] - rectangle.roundness.bottomRight,
+          ],
+          from: [
+            rectangle.points.bottomRight[0],
+            rectangle.points.bottomRight[1] - rectangle.roundness.bottomRight,
+          ],
+          to: [
+            rectangle.points.bottomRight[0] - rectangle.roundness.bottomRight,
+            rectangle.points.bottomRight[1],
+          ],
+        },
+        segment,
+      ),
+    ];
+  }
+
+  if (bottomLeftCandidates.length > 0) {
+    result = [
+      ...result,
+      ...interceptOfSymmetricArcAndSegment(
+        {
+          center: [
+            rectangle.points.bottomLeft[0] + rectangle.roundness.bottomLeft,
+            rectangle.points.bottomLeft[1] - rectangle.roundness.bottomLeft,
+          ],
+          from: [
+            rectangle.points.bottomLeft[0] + rectangle.roundness.bottomLeft,
+            rectangle.points.bottomLeft[1],
+          ],
+          to: [
+            rectangle.points.bottomLeft[0],
+            rectangle.points.bottomLeft[1] - rectangle.roundness.bottomLeft,
+          ],
+        },
+        segment,
+      ),
+    ];
+  }
+
+  return result;
+};

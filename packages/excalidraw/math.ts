@@ -161,6 +161,11 @@ export const distanceSq2d = (p1: Point, p2: Point) => {
   const yd = p2[1] - p1[1];
   return xd * xd + yd * yd;
 };
+export const distancePoints = (p1: Point, p2: Point) => {
+  const xd = p2[0] - p1[0];
+  const yd = p2[1] - p1[1];
+  return Math.hypot(xd, yd);
+};
 
 export const centerPoint = (a: Point, b: Point): Point => {
   return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
@@ -676,35 +681,19 @@ type PolarCoords = [number, number];
  * (x, y) for the center point 0,0 where the first number returned is the radius,
  * the second is the angle in radians.
  */
-export const carthesian2Polar = ([x, y]: Point): PolarCoords => [
-  Math.hypot(x, y),
-  Math.atan2(y, x),
-];
-
-/**
- * Angles are in radians and centered on 0, 0. Zero radians on a 1 radius circle
- * corresponds to (1, 0) carthesian coordinates (point), i.e. to the "right".
- */
-type SymmetricArc = { radius: number; startAngle: number; endAngle: number };
-
-/**
- * Determines if a carthesian point lies on a symmetric arc, i.e. an arc which
- * is part of a circle contour centered on 0, 0.
- */
-export const isPointOnSymmetricArc = (
-  { radius: arcRadius, startAngle, endAngle }: SymmetricArc,
+export const carthesian2Polar = (
   point: Point,
-): boolean => {
-  const [radius, angle] = carthesian2Polar(point);
-
-  return startAngle < endAngle
-    ? Math.abs(radius - arcRadius) < 0.0000001 &&
-        startAngle <= angle &&
-        endAngle >= angle
-    : startAngle <= angle || endAngle >= angle;
+  center: Point = [0, 0],
+): PolarCoords => {
+  const x = point[0] - center[0];
+  const y = point[1] - center[1];
+  return [Math.hypot(x, y), Math.atan2(y, x)];
 };
 
 /**
  * Calculates the dot product of two vectors
  */
 export const dotProduct = (a: Vector, b: Vector) => a[0] * b[0] + a[1] * b[1];
+
+export const isAnyTrue = (...args: boolean[]): boolean =>
+  Math.max(...args.map((arg) => (arg ? 1 : 0))) > 0;

@@ -9,6 +9,7 @@ import {
   PointInTriangle,
   aabbForElement,
   arePointsEqual,
+  isAnyTrue,
   pointInsideBounds,
   pointToVector,
   rotatePoint,
@@ -669,9 +670,6 @@ const calculateGrid = (
     ),
   };
 };
-
-const isAnyTrue = (...args: boolean[]): boolean =>
-  Math.max(...args.map((arg) => (arg ? 1 : 0))) > 0;
 
 const getDonglePosition = (
   bounds: Bounds,
