@@ -773,6 +773,7 @@ describe("Test Transform", () => {
         elementId: "rect-1",
         focus: 0,
         gap: 205,
+        fixedPoint: [-2.05, 0.5],
       });
       expect(rect.boundElements).toStrictEqual([
         {

@@ -1337,11 +1337,13 @@ describe("history", () => {
           elementId: rect1.id,
           focus: expect.toBeNonNaNNumber(),
           gap: expect.toBeNonNaNNumber(),
+          fixedPoint: [expect.toBeNonNaNNumber(), expect.toBeNonNaNNumber()],
         });
         expect(arrow.endBinding).toEqual({
           elementId: rect2.id,
           focus: expect.toBeNonNaNNumber(),
           gap: expect.toBeNonNaNNumber(),
+          fixedPoint: [expect.toBeNonNaNNumber(), expect.toBeNonNaNNumber()],
         });
         expect(rect1.boundElements).toStrictEqual([
           { id: text.id, type: "text" },
@@ -1360,11 +1362,13 @@ describe("history", () => {
           elementId: rect1.id,
           focus: expect.toBeNonNaNNumber(),
           gap: expect.toBeNonNaNNumber(),
+          fixedPoint: [expect.toBeNonNaNNumber(), expect.toBeNonNaNNumber()],
         });
         expect(arrow.endBinding).toEqual({
           elementId: rect2.id,
           focus: expect.toBeNonNaNNumber(),
           gap: expect.toBeNonNaNNumber(),
+          fixedPoint: [expect.toBeNonNaNNumber(), expect.toBeNonNaNNumber()],
         });
         expect(h.elements).toEqual([
           expect.objectContaining({

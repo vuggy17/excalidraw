@@ -64,6 +64,7 @@ describe("element binding", () => {
       elementId: rect.id,
       focus: expect.toBeNonNaNNumber(),
       gap: expect.toBeNonNaNNumber(),
+      fixedPoint: [expect.toBeNonNaNNumber(), expect.toBeNonNaNNumber()],
     });
 
     // Move the end point to the overlapping binding position
@@ -76,11 +77,13 @@ describe("element binding", () => {
       elementId: rect.id,
       focus: expect.toBeNonNaNNumber(),
       gap: expect.toBeNonNaNNumber(),
+      fixedPoint: [expect.toBeNonNaNNumber(), expect.toBeNonNaNNumber()],
     });
     expect(arrow.endBinding).toEqual({
       elementId: rect.id,
       focus: expect.toBeNonNaNNumber(),
       gap: expect.toBeNonNaNNumber(),
+      fixedPoint: [expect.toBeNonNaNNumber(), expect.toBeNonNaNNumber()],
     });
   });
 
