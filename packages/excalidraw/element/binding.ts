@@ -63,7 +63,11 @@ import {
   rotatePoint,
   vectorToHeading,
 } from "../math";
-import { debugDrawPoint } from "../visualdebug";
+import {
+  debugDrawBounds,
+  debugDrawPoint,
+  debugDrawSegments,
+} from "../visualdebug";
 import {
   interceptPointsOfLineAndEllipse,
   interceptPointsOfSegmentAndRoundedRectangle,
@@ -743,36 +747,35 @@ export const bindPointToSnapToElementOutline = (
     bindableElement,
     elementsMap,
   );
-
-  debugDrawPoint(point, "green");
+  //debugDrawBounds(aabb);
+  //debugDrawPoint(point, "green");
   if (heading) {
     const headingIsVertical =
       compareHeading(heading, HEADING_UP) ||
       compareHeading(heading, HEADING_DOWN);
     const intersections = _intersectElementWithLine(
       bindableElement,
-      rotatePoint(
-        headingIsVertical
-          ? [point[0], aabb[1] - bindableElement.height]
-          : [aabb[0] - bindableElement.width, point[1]],
-        center,
-        -bindableElement.angle,
-      ),
-      rotatePoint(
-        headingIsVertical
-          ? [point[0], aabb[3] + bindableElement.height]
-          : [aabb[2] + bindableElement.width, point[1]],
-        center,
-        -bindableElement.angle,
-      ),
+      headingIsVertical
+        ? [point[0], point[1] - 2 * bindableElement.height]
+        : [point[0] - 2 * bindableElement.width, point[1]],
+      headingIsVertical
+        ? [point[0], point[1] + 2 * bindableElement.height]
+        : [point[0] + 2 * bindableElement.width, point[1]],
       FIXED_BINDING_DISTANCE,
     );
     intersections.sort(
       (a, b) => distanceSq2d(a, point) - distanceSq2d(b, point),
     );
-
+    debugDrawSegments([
+      headingIsVertical
+        ? [point[0], point[1] - 2 * bindableElement.height]
+        : [point[0] - 2 * bindableElement.width, point[1]],
+      headingIsVertical
+        ? [point[0], point[1] + 2 * bindableElement.height]
+        : [point[0] + 2 * bindableElement.width, point[1]],
+    ]);
     if (intersections.length > 0) {
-      debugDrawPoint(intersections[0], "red");
+      intersections.forEach((point) => debugDrawPoint(point, "red"));
       return intersections[0];
     }
   }
@@ -825,10 +828,13 @@ export const _intersectElementWithLine = (
       const halfHeight = element.height / 2;
       return interceptPointsOfLineAndEllipse(
         {
-          center: [element.x + element.width, element.y + element.height],
+          center: [
+            element.x + element.width / 2,
+            element.y + element.height / 2,
+          ],
           angle: element.angle,
-          halfWidth,
-          halfHeight,
+          halfWidth: halfWidth + gap,
+          halfHeight: halfHeight + gap,
         },
         [a, b] as LineSegment,
       );

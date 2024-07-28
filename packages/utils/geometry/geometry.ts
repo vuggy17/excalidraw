@@ -12,6 +12,10 @@ import {
   scaleVector,
   subtractVectors,
 } from "../../excalidraw/math";
+import {
+  debugDrawPoint,
+  debugDrawSegments,
+} from "../../excalidraw/visualdebug";
 import type {
   Point,
   Line,
@@ -985,40 +989,6 @@ export const pointInEllipse = (point: Point, ellipse: Ellipse) => {
 };
 
 /**
- * Returns the intersection point(s) of a line segment represented by a start
- * point and end point and a symmetric arc.
- */
-export const interceptOfSymmetricArcAndSegment = (
-  arc: CircularArc,
-  line: Readonly<LineSegment>,
-): Point[] => {
-  const radius = distancePoints(arc.from, arc.center);
-  const [, fromAngle] = carthesian2Polar(arc.from, arc.center);
-  const [, toAngle] = carthesian2Polar(arc.to, arc.center);
-
-  return interceptPointsOfLineAndEllipse(
-    {
-      center: arc.center,
-      angle: 0,
-      halfHeight: radius,
-      halfWidth: radius,
-    },
-    line,
-  ).filter((candidate) => {
-    const [candidateRadius, candidateAngle] = carthesian2Polar(
-      candidate,
-      arc.center,
-    );
-
-    return fromAngle < toAngle
-      ? Math.abs(radius - candidateRadius) < 0.0000001 &&
-          fromAngle <= candidateAngle &&
-          toAngle >= candidateAngle
-      : fromAngle <= candidateAngle || toAngle >= candidateAngle;
-  });
-};
-
-/**
  * Calculate a maximum of two intercept points for a line going throug an
  * ellipse.
  */
@@ -1080,7 +1050,43 @@ export const interceptPointsOfLineAndEllipse = (
     }
   }
 
-  return intersections;
+  return intersections.map((point) =>
+    rotatePoint(point, ellipse.center, ellipse.angle),
+  );
+};
+
+/**
+ * Returns the intersection point(s) of a line segment represented by a start
+ * point and end point and a symmetric arc.
+ */
+export const interceptOfSymmetricArcAndSegment = (
+  arc: CircularArc,
+  line: Readonly<LineSegment>,
+): Point[] => {
+  const radius = distancePoints(arc.from, arc.center);
+  const [, fromAngle] = carthesian2Polar(arc.from, arc.center);
+  const [, toAngle] = carthesian2Polar(arc.to, arc.center);
+
+  return interceptPointsOfLineAndEllipse(
+    {
+      center: arc.center,
+      angle: 0,
+      halfHeight: radius,
+      halfWidth: radius,
+    },
+    line,
+  ).filter((candidate) => {
+    const [candidateRadius, candidateAngle] = carthesian2Polar(
+      candidate,
+      arc.center,
+    );
+
+    return fromAngle < toAngle
+      ? Math.abs(radius - candidateRadius) < 0.0000001 &&
+          fromAngle <= candidateAngle &&
+          toAngle >= candidateAngle
+      : fromAngle <= candidateAngle || toAngle >= candidateAngle;
+  });
 };
 
 /**
@@ -1167,10 +1173,8 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
     center,
     rectangle.angle,
   );
-  const rotatedSegment = [
-    rotatePoint(segment[0], center, rectangle.angle),
-    rotatePoint(segment[1], center, rectangle.angle),
-  ] as LineSegment;
+
+  debugDrawSegments([segment]);
 
   const candidates = interceptPointsOfSegmentAndPolygon(
     [
@@ -1180,7 +1184,7 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
       nonRotatedBottomLeft,
       nonRotatedTopLeft,
     ],
-    rotatedSegment,
+    segment,
   );
 
   // Check if candidate points are in rounded corner territory
@@ -1238,20 +1242,32 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
       ...result,
       ...interceptOfSymmetricArcAndSegment(
         {
-          center: [
-            nonRotatedTopLeft[0] + rectangle.roundness.topLeft,
-            nonRotatedTopLeft[1] + rectangle.roundness.topLeft,
-          ],
-          from: [
-            nonRotatedTopLeft[0],
-            nonRotatedTopLeft[1] + rectangle.roundness.topLeft,
-          ],
-          to: [
-            nonRotatedTopLeft[0] + rectangle.roundness.topLeft,
-            nonRotatedTopLeft[1],
-          ],
+          center: rotatePoint(
+            [
+              rectangle.points.topLeft[0] + rectangle.roundness.topLeft,
+              rectangle.points.topLeft[1] + rectangle.roundness.topLeft,
+            ],
+            center,
+            rectangle.angle,
+          ),
+          from: rotatePoint(
+            [
+              rectangle.points.topLeft[0],
+              rectangle.points.topLeft[1] + rectangle.roundness.topLeft,
+            ],
+            center,
+            rectangle.angle,
+          ),
+          to: rotatePoint(
+            [
+              rectangle.points.topLeft[0] + rectangle.roundness.topLeft,
+              rectangle.points.topLeft[1],
+            ],
+            center,
+            rectangle.angle,
+          ),
         },
-        rotatedSegment,
+        segment,
       ),
     ];
   }
@@ -1261,20 +1277,32 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
       ...result,
       ...interceptOfSymmetricArcAndSegment(
         {
-          center: [
-            nonRotatedTopRight[0] - rectangle.roundness.topRight,
-            nonRotatedTopRight[1] + rectangle.roundness.topRight,
-          ],
-          from: [
-            nonRotatedTopRight[0] - rectangle.roundness.topRight,
-            nonRotatedTopRight[1],
-          ],
-          to: [
-            nonRotatedTopRight[0],
-            nonRotatedTopRight[1] + rectangle.roundness.topRight,
-          ],
+          center: rotatePoint(
+            [
+              rectangle.points.topRight[0] - rectangle.roundness.topRight,
+              rectangle.points.topRight[1] + rectangle.roundness.topRight,
+            ],
+            center,
+            rectangle.angle,
+          ),
+          from: rotatePoint(
+            [
+              rectangle.points.topRight[0] - rectangle.roundness.topRight,
+              rectangle.points.topRight[1],
+            ],
+            center,
+            rectangle.angle,
+          ),
+          to: rotatePoint(
+            [
+              rectangle.points.topRight[0],
+              rectangle.points.topRight[1] + rectangle.roundness.topRight,
+            ],
+            center,
+            rectangle.angle,
+          ),
         },
-        rotatedSegment,
+        segment,
       ),
     ];
   }
@@ -1284,20 +1312,32 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
       ...result,
       ...interceptOfSymmetricArcAndSegment(
         {
-          center: [
-            nonRotatedBottomRight[0] - rectangle.roundness.bottomRight,
-            nonRotatedBottomRight[1] - rectangle.roundness.bottomRight,
-          ],
-          from: [
-            nonRotatedBottomRight[0],
-            nonRotatedBottomRight[1] - rectangle.roundness.bottomRight,
-          ],
-          to: [
-            nonRotatedBottomRight[0] - rectangle.roundness.bottomRight,
-            nonRotatedBottomRight[1],
-          ],
+          center: rotatePoint(
+            [
+              rectangle.points.bottomRight[0] - rectangle.roundness.bottomRight,
+              rectangle.points.bottomRight[1] - rectangle.roundness.bottomRight,
+            ],
+            center,
+            rectangle.angle,
+          ),
+          from: rotatePoint(
+            [
+              rectangle.points.bottomRight[0],
+              rectangle.points.bottomRight[1] - rectangle.roundness.bottomRight,
+            ],
+            center,
+            rectangle.angle,
+          ),
+          to: rotatePoint(
+            [
+              rectangle.points.bottomRight[0] - rectangle.roundness.bottomRight,
+              rectangle.points.bottomRight[1],
+            ],
+            center,
+            rectangle.angle,
+          ),
         },
-        rotatedSegment,
+        segment,
       ),
     ];
   }
@@ -1307,20 +1347,32 @@ export const interceptPointsOfSegmentAndRoundedRectangle = (
       ...result,
       ...interceptOfSymmetricArcAndSegment(
         {
-          center: [
-            nonRotatedBottomLeft[0] + rectangle.roundness.bottomLeft,
-            nonRotatedBottomLeft[1] - rectangle.roundness.bottomLeft,
-          ],
-          from: [
-            nonRotatedBottomLeft[0] + rectangle.roundness.bottomLeft,
-            nonRotatedBottomLeft[1],
-          ],
-          to: [
-            nonRotatedBottomLeft[0],
-            nonRotatedBottomLeft[1] - rectangle.roundness.bottomLeft,
-          ],
+          center: rotatePoint(
+            [
+              rectangle.points.bottomLeft[0] + rectangle.roundness.bottomLeft,
+              rectangle.points.bottomLeft[1] - rectangle.roundness.bottomLeft,
+            ],
+            center,
+            rectangle.angle,
+          ),
+          from: rotatePoint(
+            [
+              rectangle.points.bottomLeft[0] + rectangle.roundness.bottomLeft,
+              rectangle.points.bottomLeft[1],
+            ],
+            center,
+            rectangle.angle,
+          ),
+          to: rotatePoint(
+            [
+              rectangle.points.bottomLeft[0],
+              rectangle.points.bottomLeft[1] - rectangle.roundness.bottomLeft,
+            ],
+            center,
+            rectangle.angle,
+          ),
         },
-        rotatedSegment,
+        segment,
       ),
     ];
   }
