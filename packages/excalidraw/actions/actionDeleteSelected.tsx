@@ -4,10 +4,7 @@ import { ToolButton } from "../components/ToolButton";
 import { t } from "../i18n";
 import { register } from "./register";
 import { getNonDeletedElements } from "../element";
-import type {
-  ExcalidrawArrowElement,
-  ExcalidrawElement,
-} from "../element/types";
+import type { ExcalidrawArrowElement, ExcalidrawElement } from "../element/types";
 import type { AppClassProperties, AppState } from "../types";
 import { mutateElement, newElementWith } from "../element/mutateElement";
 import { getElementsInGroup } from "../groups";

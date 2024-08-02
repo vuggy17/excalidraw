@@ -619,7 +619,7 @@ export const pointInsideBounds = (p: Point, bounds: Bounds): boolean =>
  * Get the axis-aligned bounding box for a given element
  */
 export const aabbForElement = (
-  element: ExcalidrawElement,
+  element: Readonly<ExcalidrawElement>,
   offset?: [number, number, number, number],
 ) => {
   const bbox = {
@@ -696,3 +696,50 @@ export const dotProduct = (a: Vector, b: Vector) => a[0] * b[0] + a[1] * b[1];
 
 export const isAnyTrue = (...args: boolean[]): boolean =>
   Math.max(...args.map((arg) => (arg ? 1 : 0))) > 0;
+
+/**
+ * Angles are in radians and centered on 0, 0. Zero radians on a 1 radius circle
+ * corresponds to (1, 0) carthesian coordinates (point), i.e. to the "right".
+ */
+type SymmetricArc = { radius: number; startAngle: number; endAngle: number };
+
+/**
+ * Determines if a carthesian point lies on a symmetric arc, i.e. an arc which
+ * is part of a circle contour centered on 0, 0.
+ */
+export const isPointOnSymmetricArc = (
+  { radius: arcRadius, startAngle, endAngle }: SymmetricArc,
+  point: Point,
+): boolean => {
+  const [radius, angle] = carthesian2Polar(point);
+
+  return startAngle < endAngle
+    ? Math.abs(radius - arcRadius) < 0.0000001 &&
+        startAngle <= angle &&
+        endAngle >= angle
+    : startAngle <= angle || endAngle >= angle;
+};
+
+export const getCenterForBounds = (bounds: Bounds): Point => [
+  bounds[0] + (bounds[2] - bounds[0]) / 2,
+  bounds[1] + (bounds[3] - bounds[1]) / 2,
+];
+
+export const getCenterForElement = (element: ExcalidrawElement): Point => [
+  element.x + element.width / 2,
+  element.y + element.height / 2,
+];
+
+export const aabbsOverlapping = (a: Bounds, b: Bounds) =>
+  pointInsideBounds([a[0], a[1]], b) ||
+  pointInsideBounds([a[2], a[1]], b) ||
+  pointInsideBounds([a[2], a[3]], b) ||
+  pointInsideBounds([a[0], a[3]], b) ||
+  pointInsideBounds([b[0], b[1]], a) ||
+  pointInsideBounds([b[2], b[1]], a) ||
+  pointInsideBounds([b[2], b[3]], a) ||
+  pointInsideBounds([b[0], b[3]], a);
+
+export const clamp = (value: number, min: number, max: number) => {
+  return Math.min(Math.max(value, min), max);
+};

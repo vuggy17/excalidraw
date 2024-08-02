@@ -1,49 +1,49 @@
 import { cross } from "../../utils/geometry/geometry";
 import BinaryHeap from "../binaryheap";
-import type { Heading } from "../math";
+import {
+  aabbForElement,
+  arePointsEqual,
+  pointInsideBounds,
+  pointToVector,
+  scalePointFromOrigin,
+  scaleVector,
+  translatePoint,
+} from "../math";
+import { getSizeFromPoints } from "../points";
+import type Scene from "../scene/Scene";
+import type { Point } from "../types";
+import { isAnyTrue, toBrandedType, tupleToCoors } from "../utils";
+import {
+  bindPointToSnapToElementOutline,
+  distanceToBindableElement,
+  avoidRectangularCorner,
+  getHoveredElementForBinding,
+  FIXED_BINDING_DISTANCE,
+  getHeadingForElbowArrowSnap,
+  getGlobalFixedPointForBindableElement,
+  snapToMid,
+} from "./binding";
+import type { Bounds } from "./bounds";
+import type { Heading } from "./heading";
 import {
   HEADING_DOWN,
   HEADING_LEFT,
   HEADING_RIGHT,
   HEADING_UP,
-  PointInTriangle,
-  aabbForElement,
-  arePointsEqual,
-  isAnyTrue,
-  pointInsideBounds,
-  pointToVector,
-  rotatePoint,
-  scalePointFromOrigin,
-  scaleVector,
-  translatePoint,
   vectorToHeading,
-} from "../math";
-import { getSizeFromPoints } from "../points";
-import type Scene from "../scene/Scene";
-import type { Point } from "../types";
-import { toBrandedType, tupleToCoors } from "../utils";
-import {
-  bindPointToSnapToElementOutline,
-  distanceToBindableElement,
-  avoidRectangularCorner,
-  snapToMid,
-  getHoveredElementForBinding,
-  FIXED_BINDING_DISTANCE,
-} from "./binding";
-import type { Bounds } from "./bounds";
-import { LinearElementEditor } from "./linearElementEditor";
+} from "./heading";
 import { mutateElement } from "./mutateElement";
 import { isBindableElement, isRectanguloidElement } from "./typeChecks";
 import type {
+  ExcalidrawElbowArrowElement,
+  FixedPointBinding,
   NonDeletedExcalidrawElement,
   NonDeletedSceneElementsMap,
 } from "./types";
-import {
-  type ElementsMap,
-  type ExcalidrawArrowElement,
-  type ExcalidrawBindableElement,
-  type OrderedExcalidrawElement,
-  type PointBinding,
+import type {
+  ElementsMap,
+  ExcalidrawBindableElement,
+  OrderedExcalidrawElement,
 } from "./types";
 
 type Node = {
@@ -66,13 +66,13 @@ type Grid = {
 const BASE_PADDING = 40;
 
 export const mutateElbowArrow = (
-  arrow: ExcalidrawArrowElement,
+  arrow: ExcalidrawElbowArrowElement,
   scene: Scene,
   nextPoints: readonly Point[],
   offset?: Point,
   otherUpdates?: {
-    startBinding?: PointBinding | null;
-    endBinding?: PointBinding | null;
+    startBinding?: FixedPointBinding | null;
+    endBinding?: FixedPointBinding | null;
   },
   options?: {
     changedElements?: Map<string, OrderedExcalidrawElement>;
@@ -115,8 +115,8 @@ export const mutateElbowArrow = (
         true,
       )
     : endElement;
-
   const startGlobalPoint = getGlobalPoint(
+    arrow.startBinding?.fixedPoint,
     origStartGlobalPoint,
     origEndGlobalPoint,
     elementsMap,
@@ -125,6 +125,7 @@ export const mutateElbowArrow = (
     options?.isDragging,
   );
   const endGlobalPoint = getGlobalPoint(
+    arrow.endBinding?.fixedPoint,
     origEndGlobalPoint,
     origStartGlobalPoint,
     elementsMap,
@@ -132,21 +133,20 @@ export const mutateElbowArrow = (
     hoveredEndElement,
     options?.isDragging,
   );
-
   const startHeading = getBindPointHeading(
     startGlobalPoint,
     endGlobalPoint,
     elementsMap,
     hoveredStartElement,
+    origStartGlobalPoint,
   );
   const endHeading = getBindPointHeading(
     endGlobalPoint,
     startGlobalPoint,
     elementsMap,
     hoveredEndElement,
+    origEndGlobalPoint,
   );
-
-  // Calculate bounds needed for routing
   const startPointBounds = [
     startGlobalPoint[0] - 2,
     startGlobalPoint[1] - 2,
@@ -162,13 +162,25 @@ export const mutateElbowArrow = (
   const startElementBounds = hoveredStartElement
     ? aabbForElement(
         hoveredStartElement,
-        offsetFromHeading(startHeading, FIXED_BINDING_DISTANCE * 4, 1),
+        offsetFromHeading(
+          startHeading,
+          arrow.startArrowhead
+            ? FIXED_BINDING_DISTANCE * 6
+            : FIXED_BINDING_DISTANCE * 2,
+          1,
+        ),
       )
     : startPointBounds;
   const endElementBounds = hoveredEndElement
     ? aabbForElement(
         hoveredEndElement,
-        offsetFromHeading(endHeading, FIXED_BINDING_DISTANCE * 4, 1),
+        offsetFromHeading(
+          endHeading,
+          arrow.endArrowhead
+            ? FIXED_BINDING_DISTANCE * 6
+            : FIXED_BINDING_DISTANCE * 2,
+          1,
+        ),
       )
     : endPointBounds;
   const boundsOverlap =
@@ -209,7 +221,10 @@ export const mutateElbowArrow = (
           startHeading,
           !hoveredStartElement && !hoveredEndElement
             ? 0
-            : BASE_PADDING - FIXED_BINDING_DISTANCE * 4,
+            : BASE_PADDING -
+                (arrow.startArrowhead
+                  ? FIXED_BINDING_DISTANCE * 6
+                  : FIXED_BINDING_DISTANCE * 2),
           BASE_PADDING,
         ),
     boundsOverlap
@@ -222,7 +237,10 @@ export const mutateElbowArrow = (
           endHeading,
           !hoveredStartElement && !hoveredEndElement
             ? 0
-            : BASE_PADDING - FIXED_BINDING_DISTANCE * 4,
+            : BASE_PADDING -
+                (arrow.endArrowhead
+                  ? FIXED_BINDING_DISTANCE * 6
+                  : FIXED_BINDING_DISTANCE * 2),
           BASE_PADDING,
         ),
     boundsOverlap,
@@ -247,13 +265,6 @@ export const mutateElbowArrow = (
     endHeading,
     commonBounds,
   );
-
-  // dynamicAABBs.forEach((bbox) => debugDrawBounds(bbox));
-  // [startElementBounds, endElementBounds]
-  //   .filter((aabb) => aabb !== null)
-  //   .forEach((bbox) => debugDrawBounds(bbox, "red"));
-  // debugDrawBounds(commonBounds, "cyan");
-  // grid.data.forEach((node) => node && debugDrawPoint(node.pos));
 
   const startDongle =
     startDonglePosition && pointToGridNode(startDonglePosition, grid);
@@ -296,7 +307,6 @@ export const mutateElbowArrow = (
         ...otherUpdates,
         ...normalizedArrowElementUpdate(simplifyElbowArrowPoints(points), 0, 0),
         angle: 0,
-        roundness: null,
       },
       options?.informMutation,
     );
@@ -323,7 +333,15 @@ const offsetFromHeading = (
 };
 
 /**
- * Routing algorithm.
+ * Routing algorithm based on the A* path search algorithm.
+ * @see https://www.geeksforgeeks.org/a-search-algorithm/
+ *
+ * Binary heap is used to optimize node lookup.
+ * See {@link calculateGrid} for the grid calculation details.
+ *
+ * Additional modifications added due to aesthetic route reasons:
+ * 1) Arrow segment direction change is penalized by specific linear constant (bendMultiplier)
+ * 2) Arrow segments are not allowed to go "backwards", overlapping with the previous segment
  */
 const astar = (
   start: Node,
@@ -453,7 +471,8 @@ const m_dist = (a: Point, b: Point) =>
 
 /**
  * Create dynamically resizing, always touching
- * bounding boxes for the given static bounds.
+ * bounding boxes having a minimum extent represented
+ * by the given static bounds.
  */
 const generateDynamicAABBs = (
   a: Bounds,
@@ -610,8 +629,11 @@ const generateDynamicAABBs = (
 };
 
 /**
- * Calculates the grid from which the node points are placed on
- * based on the axis-aligned bounding boxes.
+ * Calculates the grid which is used as nodes at
+ * the grid line intersections by the A* algorithm.
+ *
+ * NOTE: This is not a uniform grid. It is built at
+ * various intersections of bounding boxes.
  */
 const calculateGrid = (
   aabbs: Bounds[],
@@ -647,8 +669,8 @@ const calculateGrid = (
   vertical.add(common[1]);
   vertical.add(common[3]);
 
-  const _vertical = Array.from(vertical).sort((a, b) => a - b); // TODO: Do we need sorting?
-  const _horizontal = Array.from(horizontal).sort((a, b) => a - b); // TODO: Do we need sorting?
+  const _vertical = Array.from(vertical).sort((a, b) => a - b);
+  const _horizontal = Array.from(horizontal).sort((a, b) => a - b);
 
   return {
     row: _vertical.length,
@@ -685,9 +707,6 @@ const getDonglePosition = (
   }
   return [bounds[0], point[1]];
 };
-
-export const crossProduct = (a: Point, b: Point): number =>
-  a[0] * b[1] - a[1] * b[0];
 
 const estimateSegmentCount = (
   start: Node,
@@ -846,124 +865,6 @@ const pointToGridNode = (point: Point, grid: Grid): Node | null => {
   return null;
 };
 
-// Gets the heading for the point by creating a bounding box around the rotated
-// close fitting bounding box, then creating 4 search cones around the center of
-// the external bbox.
-export const headingForPointFromElement = (
-  element: ExcalidrawBindableElement,
-  aabb: Bounds,
-  point: Point,
-): Heading => {
-  const SEARCH_CONE_MULTIPLIER = 2;
-
-  const midPoint = getCenterForBounds(aabb);
-
-  if (element.type === "diamond") {
-    if (point[0] < element.x) {
-      return HEADING_LEFT;
-    } else if (point[1] < element.y) {
-      return HEADING_UP;
-    } else if (point[0] > element.x + element.width) {
-      return HEADING_RIGHT;
-    } else if (point[1] > element.y + element.height) {
-      return HEADING_DOWN;
-    }
-
-    const top = rotatePoint(
-      scalePointFromOrigin(
-        [element.x + element.width / 2, element.y],
-        midPoint,
-        SEARCH_CONE_MULTIPLIER,
-      ),
-      midPoint,
-      element.angle,
-    );
-    const right = rotatePoint(
-      scalePointFromOrigin(
-        [element.x + element.width, element.y + element.height / 2],
-        midPoint,
-        SEARCH_CONE_MULTIPLIER,
-      ),
-      midPoint,
-      element.angle,
-    );
-    const bottom = rotatePoint(
-      scalePointFromOrigin(
-        [element.x + element.width / 2, element.y + element.height],
-        midPoint,
-        SEARCH_CONE_MULTIPLIER,
-      ),
-      midPoint,
-      element.angle,
-    );
-    const left = rotatePoint(
-      scalePointFromOrigin(
-        [element.x, element.y + element.height / 2],
-        midPoint,
-        SEARCH_CONE_MULTIPLIER,
-      ),
-      midPoint,
-      element.angle,
-    );
-
-    if (PointInTriangle(point, top, right, midPoint)) {
-      return diamondHeading(top, right);
-    } else if (PointInTriangle(point, right, bottom, midPoint)) {
-      return diamondHeading(right, bottom);
-    } else if (PointInTriangle(point, bottom, left, midPoint)) {
-      return diamondHeading(bottom, left);
-    }
-
-    return diamondHeading(left, top);
-  }
-
-  const topLeft = scalePointFromOrigin(
-    [aabb[0], aabb[1]],
-    midPoint,
-    SEARCH_CONE_MULTIPLIER,
-  );
-  const topRight = scalePointFromOrigin(
-    [aabb[2], aabb[1]],
-    midPoint,
-    SEARCH_CONE_MULTIPLIER,
-  );
-  const bottomLeft = scalePointFromOrigin(
-    [aabb[0], aabb[3]],
-    midPoint,
-    SEARCH_CONE_MULTIPLIER,
-  );
-  const bottomRight = scalePointFromOrigin(
-    [aabb[2], aabb[3]],
-    midPoint,
-    SEARCH_CONE_MULTIPLIER,
-  );
-
-  return PointInTriangle(point, topLeft, topRight, midPoint)
-    ? HEADING_UP
-    : PointInTriangle(point, topRight, bottomRight, midPoint)
-    ? HEADING_RIGHT
-    : PointInTriangle(point, bottomRight, bottomLeft, midPoint)
-    ? HEADING_DOWN
-    : HEADING_LEFT;
-};
-
-const lineAngle = (a: Point, b: Point): number => {
-  const theta = Math.atan2(b[1] - a[1], b[0] - a[0]) * (180 / Math.PI);
-  return theta < 0 ? 360 + theta : theta;
-};
-
-const diamondHeading = (a: Point, b: Point) => {
-  const angle = lineAngle(a, b);
-  if (angle >= 315 || angle < 45) {
-    return HEADING_UP;
-  } else if (angle >= 45 && angle < 135) {
-    return HEADING_RIGHT;
-  } else if (angle >= 135 && angle < 225) {
-    return HEADING_DOWN;
-  }
-  return HEADING_LEFT;
-};
-
 const commonAABB = (aabbs: Bounds[]): Bounds => [
   Math.min(...aabbs.map((aabb) => aabb[0])),
   Math.min(...aabbs.map((aabb) => aabb[1])),
@@ -971,12 +872,7 @@ const commonAABB = (aabbs: Bounds[]): Bounds => [
   Math.max(...aabbs.map((aabb) => aabb[3])),
 ];
 
-/// UTILS
-
-const getCenterForBounds = (bounds: Bounds): Point => [
-  bounds[0] + (bounds[2] - bounds[0]) / 2,
-  bounds[1] + (bounds[3] - bounds[1]) / 2,
-];
+/// #region Utils
 
 const getBindableElementForId = (
   id: string,
@@ -1039,73 +935,6 @@ const neighborIndexToHeading = (idx: number): Heading => {
   return HEADING_LEFT;
 };
 
-const getGlobalFixedPoints = (
-  arrow: ExcalidrawArrowElement,
-  elementsMap: ElementsMap,
-) => {
-  const startElement =
-    arrow.startBinding && elementsMap.get(arrow.startBinding.elementId);
-  const endElement =
-    arrow.endBinding && elementsMap.get(arrow.endBinding.elementId);
-  const startPoint: Point =
-    startElement && arrow.startBinding
-      ? rotatePoint(
-          [
-            startElement.x +
-              startElement.width * arrow.startBinding.fixedPoint[0],
-            startElement.y +
-              startElement.height * arrow.startBinding.fixedPoint[1],
-          ],
-          [
-            startElement.x + startElement.width / 2,
-            startElement.y + startElement.height / 2,
-          ],
-          startElement.angle,
-        )
-      : [arrow.x + arrow.points[0][0], arrow.y + arrow.points[0][1]];
-  const endPoint: Point =
-    endElement && arrow.endBinding
-      ? rotatePoint(
-          [
-            endElement.x + endElement.width * arrow.endBinding.fixedPoint[0],
-            endElement.y + endElement.height * arrow.endBinding.fixedPoint[1],
-          ],
-          [
-            endElement.x + endElement.width / 2,
-            endElement.y + endElement.height / 2,
-          ],
-          endElement.angle,
-        )
-      : [
-          arrow.x + arrow.points[arrow.points.length - 1][0],
-          arrow.y + arrow.points[arrow.points.length - 1][1],
-        ];
-
-  return [startPoint, endPoint];
-};
-
-export const getArrowLocalFixedPoints = (
-  arrow: ExcalidrawArrowElement,
-  elementsMap: ElementsMap,
-) => {
-  const [startPoint, endPoint] = getGlobalFixedPoints(arrow, elementsMap);
-
-  return [
-    LinearElementEditor.pointFromAbsoluteCoords(arrow, startPoint, elementsMap),
-    LinearElementEditor.pointFromAbsoluteCoords(arrow, endPoint, elementsMap),
-  ];
-};
-
-// const aabbsOverlapping = (a: Bounds, b: Bounds) =>
-//   pointInsideBounds([a[0], a[1]], b) ||
-//   pointInsideBounds([a[2], a[1]], b) ||
-//   pointInsideBounds([a[2], a[3]], b) ||
-//   pointInsideBounds([a[0], a[3]], b) ||
-//   pointInsideBounds([b[0], b[1]], a) ||
-//   pointInsideBounds([b[2], b[1]], a) ||
-//   pointInsideBounds([b[2], b[3]], a) ||
-//   pointInsideBounds([b[0], b[3]], a);
-
 const getAllElementsMap = (
   scene: Scene,
   changedElements?: Map<string, OrderedExcalidrawElement>,
@@ -1128,6 +957,7 @@ const getAllElements = (
     : scene.getNonDeletedElements();
 
 const getGlobalPoint = (
+  fixedPointRatio: [number, number] | undefined | null,
   initialPoint: Point,
   otherPoint: Point,
   elementsMap: NonDeletedSceneElementsMap,
@@ -1135,48 +965,72 @@ const getGlobalPoint = (
   hoveredElement?: ExcalidrawBindableElement | null,
   isDragging?: boolean,
 ): Point => {
-  if (isDragging && hoveredElement) {
-    const nonCornerPoint = isRectanguloidElement(hoveredElement)
-      ? avoidRectangularCorner(hoveredElement, initialPoint)
-      : initialPoint;
-    const snapPoint =
-      hoveredElement &&
-      bindPointToSnapToElementOutline(
-        nonCornerPoint,
+  if (isDragging) {
+    if (hoveredElement) {
+      const snapPoint = getSnapPoint(
+        initialPoint,
         otherPoint,
         hoveredElement,
         elementsMap,
       );
 
-    return snapToMid(hoveredElement, snapPoint);
-  } else if (boundElement) {
-    return bindPointToSnapToElementOutline(
-      initialPoint,
-      otherPoint,
+      return snapToMid(hoveredElement, snapPoint);
+    }
+
+    return initialPoint;
+  }
+
+  if (boundElement) {
+    const fixedGlobalPoint = getGlobalFixedPointForBindableElement(
+      fixedPointRatio || [0, 0],
       boundElement,
-      elementsMap,
     );
+
+    // NOTE: Resize scales the binding position point too, so we need to update it
+    return Math.abs(
+      distanceToBindableElement(boundElement, fixedGlobalPoint, elementsMap) -
+        FIXED_BINDING_DISTANCE,
+    ) > 0.01
+      ? getSnapPoint(initialPoint, otherPoint, boundElement, elementsMap)
+      : fixedGlobalPoint;
   }
 
   return initialPoint;
 };
 
-// TODO: See if it can be merged with binding.ts: getHeadingForElbowArrowSnap()
+const getSnapPoint = (
+  point: Point,
+  otherPoint: Point,
+  element: ExcalidrawBindableElement,
+  elementsMap: ElementsMap,
+) =>
+  bindPointToSnapToElementOutline(
+    isRectanguloidElement(element)
+      ? avoidRectangularCorner(element, point)
+      : point,
+    otherPoint,
+    element,
+    elementsMap,
+  );
+
 const getBindPointHeading = (
   point: Point,
   otherPoint: Point,
   elementsMap: NonDeletedSceneElementsMap,
-  hoveredElement?: ExcalidrawBindableElement | null,
+  hoveredElement: ExcalidrawBindableElement | null | undefined,
+  origPoint: Point,
 ) =>
-  hoveredElement
-    ? headingForPointFromElement(
+  getHeadingForElbowArrowSnap(
+    point,
+    otherPoint,
+    hoveredElement,
+    hoveredElement &&
+      aabbForElement(
         hoveredElement,
-        aabbForElement(
-          hoveredElement,
-          Array(4).fill(
-            distanceToBindableElement(hoveredElement, point, elementsMap),
-          ) as [number, number, number, number],
-        ),
-        point,
-      )
-    : vectorToHeading(pointToVector(otherPoint, point));
+        Array(4).fill(
+          distanceToBindableElement(hoveredElement, point, elementsMap),
+        ) as [number, number, number, number],
+      ),
+    elementsMap,
+    origPoint,
+  );
