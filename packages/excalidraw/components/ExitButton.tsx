@@ -2,11 +2,11 @@ import clsx from "clsx";
 import { PencilXIcon } from "./icons";
 import { ToolButton } from "./ToolButton";
 import { capitalizeString } from "../utils";
+import { appWindow } from "@tauri-apps/api/window";
 
 export function ExitDrawButton() {
   const isWindowApp = "__TAURI__" in window;
 
-  console.log("isWindowApp", isWindowApp, window);
   return isWindowApp ? (
     <ToolButton
       className={clsx("Shape", { fillable: false })}
@@ -18,6 +18,7 @@ export function ExitDrawButton() {
       title={`${capitalizeString("Exit drawing")} — ${undefined}`}
       // keyBindingLabel={"x"}
       aria-label={capitalizeString("exit")}
+      onClick={() => appWindow.setIgnoreCursorEvents(true)}
       // aria-keyshortcuts={shortcut}
       // data-testid={`toolbar-${value}`}
       // onPointerDown={({ pointerType }) => {
