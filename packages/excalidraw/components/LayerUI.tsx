@@ -63,6 +63,7 @@ import { actionToggleStats } from "../actions";
 
 import "./LayerUI.scss";
 import "./Toolbar.scss";
+import { ExitDrawButton } from "./ExitButton";
 
 interface LayerUIProps {
   actionManager: ActionManager;
@@ -269,6 +270,7 @@ const LayerUI = ({
                         />
                         {heading}
                         <Stack.Row gap={1}>
+                          <ExitDrawButton />
                           <PenModeButton
                             zenModeEnabled={appState.zenModeEnabled}
                             checked={appState.penMode}
