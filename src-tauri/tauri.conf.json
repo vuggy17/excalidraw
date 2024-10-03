@@ -61,7 +61,10 @@
         "fullscreen": true,
         "resizable": true,
         "title": "excalidraw-desktop",
-        "transparent": true
+        "transparent": true,
+        "minimizable": true,
+        "label": "main",
+        "alwaysOnTop": true
       }
     ]
   }

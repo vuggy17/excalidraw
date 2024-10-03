@@ -342,14 +342,25 @@ export const FreedrawIcon = createIcon(
   modifiedTablerIconProps,
 );
 
-// tabler-icons: pencil-x
-export const PencilXIcon = createIcon(
+// tabler-icons: pencil-pause
+export const PauseDrawingIcon = createIcon(
   <g strokeWidth="1.25">
     <path stroke="none" d="M0 0h24v24H0z" fill="none" />
     <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
     <path d="M13.5 6.5l4 4" />
-    <path d="M22 22l-5 -5" />
-    <path d="M17 22l5 -5" />
+    <path d="M17 17v5" />
+    <path d="M21 17v5" />
+  </g>,
+  tablerIconProps,
+);
+
+// tabler-icons: pencil-check
+export const ContinueDrawingIcon = createIcon(
+  <g strokeWidth="1.25">
+    <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+    <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+    <path d="M13.5 6.5l4 4" />
+    <path d="M15 19l2 2l4 -4" />
   </g>,
   tablerIconProps,
 );
